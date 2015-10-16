@@ -1,5 +1,8 @@
 '''
 Plot satellite data in the northwestern Gulf of Mexico.
+
+Usage:
+plot_sat.py [-h] year var area
 '''
 
 import numpy as np
@@ -25,8 +28,12 @@ import os
 # Input arguments: year and what to plot
 parser = argparse.ArgumentParser()
 parser.add_argument('year', type=int, help='What year to plot')
-parser.add_argument('var', type=str, help='What field to plot: "sst" (sea surface temp) or "oci" (chlorophyll with good correction algorithm)')
+parser.add_argument('var', type=str, help='What field to plot: "sst" (sea surface temp) or "oci" (chlorophyll-a with good correction algorithm) or "ci" (chlorophyll-a with no sun glint)')
+parser.add_argument('area', type=str, help='Area getting data from to plot: "gcoos" (full Gulf of Mexico) or "wgom" (western Gulf of Mexico)')
 args = parser.parse_args()
+
+if (args.var == 'ci') and (args.area == 'gcoos'):
+    print 'Color index is not available for the full Gulf of Mexico. Choose "wgom" instead.'
 
 mpl.rcParams.update({'font.size': 14})
 mpl.rcParams['font.sans-serif'] = 'Arev Sans, Bitstream Vera Sans, Lucida Grande, Verdana, Geneva, Lucid, Helvetica, Avant Garde, sans-serif'
@@ -43,10 +50,13 @@ grid_filename = '../../grid.nc'
 grid = tracpy.inout.readgrid(grid_filename, usebasemap=True, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
 
 # Satellite data is in equidistant cylindrical projection which is just lon/lat
-lon = np.linspace(-98, -79, 2090)
-lat = np.linspace(18, 31, 1430)
+if args.area == 'gcoos':
+    lon = np.linspace(-98, -79, 2090)
+    lat = np.linspace(18, 31, 1430)
+elif args.area == 'wgom':
+    lon = np.linspace(-98, -90, 880)
+    lat = np.linspace(18, 30, 1320)
 LON, LAT = np.meshgrid(lon, lat[::-1])
-
 X, Y = grid['basemap'](LON, LAT)
 
 if args.var == 'sst':
@@ -56,8 +66,12 @@ if args.var == 'sst':
 elif args.var == 'oci':
     cmap = cm.chl
     cmin = 0.1; cmax = 5; dc = 5
+elif args.var == 'ci':
+    cmap = cm.chl
+    cmin = 0.01; cmax = 0.1; dc = 5
+    # cmin = 0.002; cmax = 0.5; dc = 5
 
-url = 'http://optics.marine.usf.edu/subscription/modis/GCOOS/' + str(args.year) + '/daily/'
+url = 'http://optics.marine.usf.edu/subscription/modis/' + args.area.upper() + '/' + str(args.year) + '/daily/'
 soup = BeautifulSoup(requests.get(url).text)
 
 # indices to be within the box of the domain and not covered by land and in numerical domain
@@ -67,21 +81,30 @@ verts = np.vstack((x, y)).T
 path = Path(verts)
 ptstotal = path.contains_points(np.vstack((X.flat, Y.flat)).T).sum()  # how many points possible within model domain
 
+if not os.path.exists('figures/'):  # make sure directory exists
+    os.makedirs('figures/')
+if not os.path.exists('figures/' + args.var):  # make sure directory exists
+    os.makedirs('figures/' + args.var)
+
 for row in soup.findAll('a')[5:]:  # loop through each day
     soup_dir = BeautifulSoup(requests.get(url + row.string).text)  # open up page for a day
 
     for File in soup_dir.findAll('a')[5:]:  # find all files for this day
 
         # search for the image file we want, might be more than one for a day
-        if '.1KM.GCOOS.PASS.L3D.' + args.var.upper() + '.png' in File.string:
+        if args.area == 'gcoos':
+            fname = '.1KM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
+        elif args.area == 'wgom':
+            fname = '.1KM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
 
+        if fname in File.string:
             image_loc = url + row.string + File.string  # save file address
             day = row.string.split('/')[0]
             time = File.string.split('.')[0][-4:]
             whichsat = File.string[0]  # which satellite
             date = datetime(args.year, 1, 1) + timedelta(days=int(day) - 1) \
                     + timedelta(hours=int(time[:2])) + timedelta(minutes=int(time[2:]))
-            filename = 'figures/' + args.var + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '.png'
+            filename = 'figures/' + args.var + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area + '.png'
             if os.path.exists(filename):
                 continue
 
@@ -108,6 +131,12 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                     bb = np.log(5/0.01)/(1-0.0)  # mapping from 0 to 1 (linear) to 0.01 to 5 (logscale)
                     aa = 5/np.exp(bb*1)
                     foo_mask = aa*np.exp(bb*(foo_mask/236.))  # now in logscale
+                # Color index for no sun glint: map data onto 0.002 to 0.5 logscale which does not connect directly with chlorophyll numbers
+                elif args.var == 'ci':
+                    # http://stackoverflow.com/questions/19472747/convert-linear-scale-to-logarithmic/19472811#19472811
+                    bb = np.log(0.5/0.002)/(1-0.0)  # mapping from 0 to 1 (linear) to 0.01 to 5 (logscale)
+                    aa = 0.5/np.exp(bb*1)
+                    foo_mask = aa*np.exp(bb*(foo_mask/236.))  # now in logscale
 
                 # plot
                 fig = plt.figure(figsize=(10.1, 8.4), dpi=100)
@@ -116,7 +145,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 tracpy.plotting.background(grid=grid, ax=ax, mers=np.arange(-97, -87), merslabels=[0, 0, 1, 0], pars=np.arange(23, 32))
                 if args.var == 'sst':
                     mappable = ax.pcolormesh(X, Y, foo_mask, cmap=cmap)
-                elif args.var == 'oci':
+                elif (args.var == 'oci') or (args.var == 'ci'):
                     mappable = ax.pcolormesh(X, Y, foo_mask, cmap=cmap, norm=LogNorm(vmin=cmin, vmax=cmax))
 
                 # data source
@@ -134,6 +163,8 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                     cb.set_ticks(ticks)
                 elif args.var == 'oci':
                     cb.set_label(r'Chlorophyll-a [mg$\,$m$^{-3}$]', fontsize=14, color='0.2')
+                elif args.var == 'ci':
+                    cb.set_label('Color index', fontsize=14, color='0.2')
                 cb.ax.tick_params(labelsize=14, length=2, color='0.2', labelcolor='0.2')
                 # box behind to hide lines
                 ax.add_patch(patches.Rectangle((0.005, 0.925), 0.42, 0.0625, transform=ax.transAxes, color='0.8', zorder=3))
