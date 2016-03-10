@@ -46,7 +46,8 @@ mpl.rcParams['mathtext.bf'] = 'sans:bold'
 mpl.rcParams['mathtext.sf'] = 'sans'
 mpl.rcParams['mathtext.fallback_to_cm'] = 'True'
 
-grid_filename = '../../grid.nc'
+# grid_filename = '../../grid.nc'
+grid_filename = '/atch/raid1/zhangxq/Projects/txla_nesting6/txla_grd_v4_new.nc'
 grid = tracpy.inout.readgrid(grid_filename, usebasemap=True, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
 
 # Satellite data is in equidistant cylindrical projection which is just lon/lat
