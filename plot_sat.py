@@ -13,7 +13,7 @@ from StringIO import StringIO
 from cmocean import cm
 import tracpy
 import tracpy.plotting
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
 import matplotlib.patches as patches
 import matplotlib as mpl
 from matplotlib.path import Path
@@ -49,6 +49,10 @@ mpl.rcParams['mathtext.fallback_to_cm'] = 'True'
 # grid_filename = '../../grid.nc'
 grid_filename = '/atch/raid1/zhangxq/Projects/txla_nesting6/txla_grd_v4_new.nc'
 grid = tracpy.inout.readgrid(grid_filename, usebasemap=True, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
+# proj = tracpy.tools.make_proj(setup='nwgom', usebasemap=True)
+# grid = tracpy.inout.readgrid(grid_filename, proj, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
+
+# grid = octant.grid.CGrid_geo(dsgrid['lon_vert'].data, dsgrid['lat_vert'].data, proj)
 
 # Satellite data is in equidistant cylindrical projection which is just lon/lat
 if args.area == 'gcoos':
@@ -73,7 +77,7 @@ elif args.var == 'ci':
     # cmin = 0.002; cmax = 0.5; dc = 5
 
 url = 'http://optics.marine.usf.edu/subscription/modis/' + args.area.upper() + '/' + str(args.year) + '/daily/'
-soup = BeautifulSoup(requests.get(url).text)
+soup = BeautifulSoup(requests.get(url).text, "lxml")
 
 # indices to be within the box of the domain and not covered by land and in numerical domain
 x = np.concatenate((grid['xr'][0, :], grid['xr'][:, -1], grid['xr'][-1, ::-1], grid['xr'][::-1, 0]))
@@ -88,10 +92,11 @@ if not os.path.exists('figures/' + args.var):  # make sure directory exists
     os.makedirs('figures/' + args.var)
 
 for row in soup.findAll('a')[5:]:  # loop through each day
-    soup_dir = BeautifulSoup(requests.get(url + row.string).text)  # open up page for a day
-
+    # print row
+    soup_dir = BeautifulSoup(requests.get(url + row.string).text, "lxml")  # open up page for a day
+    # print soup_dir
     for File in soup_dir.findAll('a')[5:]:  # find all files for this day
-
+        # print File
         # search for the image file we want, might be more than one for a day
         if args.area == 'gcoos':
             fname = '.1KM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
@@ -108,6 +113,9 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             filename = 'figures/' + args.var + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area + '.png'
             if os.path.exists(filename):
                 continue
+
+            # if not ('2015-08-26' in date.isoformat()):
+            #     continue
 
             # print date
             # open and load in image
@@ -143,7 +151,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 fig = plt.figure(figsize=(10.1, 8.4), dpi=100)
                 ax = fig.add_axes([0.06, 0.00, 0.93, 0.97])
                 ax.set_frame_on(False)  # kind of like it without the box
-                tracpy.plotting.background(grid=grid, ax=ax, mers=np.arange(-97, -87), merslabels=[0, 0, 1, 0], pars=np.arange(23, 32))
+                tracpy.plotting.background(grid=grid, ax=ax, mers=np.arange(-97, -87), merslabels=[0, 0, 1, 0], pars=np.arange(23, 32), col='0.2', halpha=0.5)
                 if args.var == 'sst':
                     mappable = ax.pcolormesh(X, Y, foo_mask, cmap=cmap)
                 elif (args.var == 'oci') or (args.var == 'ci'):
