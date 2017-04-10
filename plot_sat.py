@@ -2,7 +2,7 @@
 Plot satellite data in the northwestern Gulf of Mexico.
 
 Usage:
-plot_sat.py [-h] year var area
+plot_sat.py [-h] year "var" "area"
 '''
 
 import numpy as np
@@ -10,10 +10,13 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import requests
 from StringIO import StringIO
-from cmocean import cm
+import cmocean.cm as cmo
 import tracpy
 import tracpy.plotting
-from bs4 import BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+except:
+    from BeautifulSoup import BeautifulSoup
 import matplotlib.patches as patches
 import matplotlib as mpl
 from matplotlib.path import Path
@@ -48,9 +51,9 @@ mpl.rcParams['mathtext.fallback_to_cm'] = 'True'
 
 # grid_filename = '../../grid.nc'
 grid_filename = '/atch/raid1/zhangxq/Projects/txla_nesting6/txla_grd_v4_new.nc'
-grid = tracpy.inout.readgrid(grid_filename, usebasemap=True, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
-# proj = tracpy.tools.make_proj(setup='nwgom', usebasemap=True)
-# grid = tracpy.inout.readgrid(grid_filename, proj, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
+# grid = tracpy.inout.readgrid(grid_filename, usebasemap=True, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
+proj = tracpy.tools.make_proj(setup='nwgom', usebasemap=True, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
+grid = tracpy.inout.readgrid(grid_filename, proj)
 
 # grid = octant.grid.CGrid_geo(dsgrid['lon_vert'].data, dsgrid['lat_vert'].data, proj)
 
@@ -62,17 +65,17 @@ elif args.area == 'wgom':
     lon = np.linspace(-98, -90, 880)
     lat = np.linspace(18, 30, 1320)
 LON, LAT = np.meshgrid(lon, lat[::-1])
-X, Y = grid['basemap'](LON, LAT)
+X, Y = grid.proj(LON, LAT)
 
 if args.var == 'sst':
-    cmap = cm.temp
+    cmap = cmo.thermal
     cmin = 10; cmax = 35; dc = 5
     ticks = np.arange(cmin, cmax+dc, dc)
 elif args.var == 'oci':
-    cmap = cm.chl
+    cmap = cmo.algae
     cmin = 0.1; cmax = 5; dc = 5
 elif args.var == 'ci':
-    cmap = cm.chl
+    cmap = cmo.algae
     cmin = 0.01; cmax = 0.1; dc = 5
     # cmin = 0.002; cmax = 0.5; dc = 5
 
@@ -80,8 +83,8 @@ url = 'http://optics.marine.usf.edu/subscription/modis/' + args.area.upper() + '
 soup = BeautifulSoup(requests.get(url).text, "lxml")
 
 # indices to be within the box of the domain and not covered by land and in numerical domain
-x = np.concatenate((grid['xr'][0, :], grid['xr'][:, -1], grid['xr'][-1, ::-1], grid['xr'][::-1, 0]))
-y = np.concatenate((grid['yr'][0, :], grid['yr'][:, -1], grid['yr'][-1, ::-1], grid['yr'][::-1, 0]))
+x = np.concatenate((grid.x_rho[0, :], grid.x_rho[:, -1], grid.x_rho[-1, ::-1], grid.x_rho[::-1, 0]))
+y = np.concatenate((grid.y_rho[0, :], grid.y_rho[:, -1], grid.y_rho[-1, ::-1], grid.y_rho[::-1, 0]))
 verts = np.vstack((x, y)).T
 path = Path(verts)
 ptstotal = path.contains_points(np.vstack((X.flat, Y.flat)).T).sum()  # how many points possible within model domain
