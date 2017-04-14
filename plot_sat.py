@@ -116,6 +116,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             filename = 'figures/' + args.var + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area + '.png'
             if os.path.exists(filename):
                 continue
+            import pdb; pdb.set_trace()
 
             # if not ('2015-08-26' in date.isoformat()):
             #     continue
