@@ -7,8 +7,12 @@ plot_sat.py [-h] year "var" "area"
 Example usage:
 run plot_sat 2014 "ci" "wgom" "wgom"
 run plot_sat 2017 "ci" "gcoos" "txla"
+
+** not CI for GCOOS before 2016
 '''
 
+import matplotlib as mpl
+mpl.use("Agg") # set matplotlib to use the backend that does not require a windowing system
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
