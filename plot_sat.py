@@ -271,5 +271,5 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 plt.setp(cbtick, color='0.2')
 
                 fig.savefig(filename, bbox_inches='tight')
-                import pdb; pdb.set_trace()
+                # import pdb; pdb.set_trace()
                 plt.close(fig)
