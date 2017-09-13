@@ -7,8 +7,9 @@ plot_sat.py [-h] year "var" "area"
 Example usage:
 run plot_sat 2014 "ci" "wgom" "wgom"
 run plot_sat 2017 "ci" "gcoos" "txla"
+run plot_sat 2017 "ci" "wgom" "txla"
 
-** not CI for GCOOS before 2016
+** not CI for GCOOS before 2016 -- GCOOS is appearing lighter for CI in 2016 and 2017 than in WGOM
 '''
 
 import matplotlib as mpl
@@ -119,13 +120,16 @@ elif args.var == 'oci':
     cmin = 0.1; cmax = 5; dc = 5
 elif args.var == 'ci':
     cmap = cmo.algae
-    # cmin = 0.01; cmax = 0.2; dc = 5
-    cmin = 0.02; cmax = 0.4; dc = 5
+    # # larger range
+    # cmin = 0.02; cmax = 0.4; dc = 5
+    # ticks = np.array([0.02, 0.05, 0.1, 0.2, 0.4])
+    # more of colormap used
+    # cmin = 0.02; cmax = 0.2; dc = 5
+    cmin = 0.035; cmax = 0.15; dc = 5
+    ticks = np.array([0.035, 0.05, 0.75, 0.1, 0.15])
     # cmin = 0.005; cmax = 0.5; dc = 5
-    # cmin = 0.01; cmax = 0.1; dc = 5
     # cmin = 0.002; cmax = 0.5; dc = 5
     # ticks = np.array([0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5])
-    ticks = np.array([0.02, 0.05, 0.1, 0.2, 0.4])
     # ticks = np.array([0.01, 0.02, 0.05, 0.2])
 
 url = 'http://optics.marine.usf.edu/subscription/modis/' + args.area.upper() + '/' + str(args.year) + '/daily/'
