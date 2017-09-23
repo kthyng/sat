@@ -8,6 +8,7 @@ Example usage:
 run plot_sat 2014 "ci" "wgom" "wgom"
 run plot_sat 2017 "ci" "gcoos" "txla"
 run plot_sat 2017 "ci" "wgom" "txla"
+run plot_sat 2017 "rgb" "galveston" "galveston"
 
 ** not CI for GCOOS before 2016 -- GCOOS is appearing lighter for CI in 2016 and 2017 than in WGOM
 '''
@@ -24,8 +25,6 @@ import requests
 #     from io import StringIO
 import io
 import cmocean.cm as cmo
-# import tracpy
-# import tracpy.plotting
 try:
     from bs4 import BeautifulSoup
 except:
@@ -52,18 +51,24 @@ parser = argparse.ArgumentParser()
 parser.add_argument('year', type=int, help='What year to plot')
 parser.add_argument('var', type=str, help='What field to plot: "sst" (sea surface temp) or "oci" (chlorophyll-a with good correction algorithm) or "ci" (chlorophyll-a with no sun glint) or "rgb" (color) or "CHL" (chlorophyll-a)')
 parser.add_argument('area', type=str, help='Area getting data from to plot: "gcoos" (full Gulf of Mexico) or "wgom" (western Gulf of Mexico) or "galveston"')
-parser.add_argument('figarea', type=str, help='What area in Gulf to plot data in: "wgom" (western Gulf of Mexico) or "txla" (TXLA domain)')
+parser.add_argument('figarea', type=str, help='What area in Gulf to plot data in: "wgom" (western Gulf of Mexico) or "txla" (TXLA domain) or "galveston"')
+parser.add_argument('--plotbathy', default=None, type=str, help='Plot bathymetry from NWGOM numerical model or not (any string input will cause to plot)')
+parser.add_argument('--plotdomain', default=None, type=str, help='Plot numerica domain from NWGOM numerical model or not (any string input will cause to plot)')
 args = parser.parse_args()
 
 mpl.rcParams.update({'font.size': 11})
 
-# grid_filename = '../../grid.nc'
-# grid_filename = '/atch/raid1/zhangxq/Projects/txla_nesting6/txla_grd_v4_new.nc'
-# grid = tracpy.inout.readgrid(grid_filename, usebasemap=True, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
-# proj = tracpy.tools.make_proj(setup='nwgom', usebasemap=True, llcrnrlat=22.85, llcrnrlon=-97.9, urcrnrlat=30.5)
-# grid = tracpy.inout.readgrid(grid_filename, proj)
-loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
+# any input for plotbathy will cause bathy to plot
+if args.plotbathy is not None:
+    plotbathy = True
+if args.plotdomain is not None:
+    plotdomain = True
+
+# loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
+loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/txla_nesting6_grid/txla_grd_v4_new.nc'
 grid = xr.open_dataset(loc)
+hlevs = [10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450]  # isobath contour depths
+
 merc = ccrs.Mercator(central_longitude=-85.0)
 pc = ccrs.PlateCarree()
 land_10m = cfeature.NaturalEarthFeature('physical', 'land', '10m',
@@ -74,7 +79,6 @@ states_provinces = cfeature.NaturalEarthFeature(
     name='admin_1_states_provinces_lines',
     scale='50m',
     facecolor='none')
-hlevs = [10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450]  # isobath contour depths
 
 
 # Satellite data is in equidistant cylindrical projection which is just lon/lat
@@ -109,6 +113,13 @@ elif args.figarea == 'txla':
     caxpos = [0.19, 0.79, 0.24, 0.02]  # colorbar axis position
     datex, datey = 0.01, 0.82  # location of date on figure
     datax, datay = 0.41, 0.97  # location of data note on figure
+elif args.area == 'galveston':
+    figextent = [-96.5, -93.5, 27.8, 29.8]
+    figsize = (7, 7)
+    top, right, left, bottom =.96, .98, .15, .01
+    caxpos = [0.19, 0.79, 0.24, 0.02]  # colorbar axis position
+    datex, datey = 0.01, 0.82  # location of date on figure
+    datax, datay = 0.41, 0.97  # location of data note on figure
 
 
 if args.var == 'sst':
@@ -126,9 +137,12 @@ elif args.var == 'ci':
     # # more of colormap used
     # cmin = 0.035; cmax = 0.15; dc = 5
     # ticks = np.array([0.035, 0.05, 0.75, 0.1, 0.15])
-    # a little darker for light end
-    cmin = 0.01; cmax = 0.15; dc = 5
-    ticks = np.array([0.01, 0.02, 0.05, 0.75, 0.1, 0.15])
+    # # a little darker for light end
+    # cmin = 0.01; cmax = 0.15; dc = 5
+    # ticks = np.array([0.01, 0.02, 0.05, 0.75, 0.1, 0.15])
+    #
+    cmin = 0.025; cmax = 0.15; dc = 5
+    ticks = np.array([0.025, 0.05, 0.75, 0.1, 0.15])
     # cmin = 0.005; cmax = 0.5; dc = 5
     # cmin = 0.002; cmax = 0.5; dc = 5
     # ticks = np.array([0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5])
@@ -186,6 +200,9 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             filename = 'figures/' + args.var + '/' + args.figarea + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area + '.png'
             if os.path.exists(filename):
                 continue
+            # if not date == datetime(2011, 11, 30, 19, 40):
+            # if not date == datetime(2015, 8, 26, 19, 55):
+                # continue
 
             # open and load in image
             response = requests.get(image_loc)
@@ -243,11 +260,14 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                     # mappable = ax.pcolormesh(LON, LAT, foo_mask, cmap=cmap, norm=LogNorm(vmin=cmin, vmax=cmax), transform=pc)
 
                 # isobaths
-                if args.figarea == 'txla':  # don't have data outside numerical domain
-                    ax.contour(grid.lon_rho, grid.lat_rho, grid.h, hlevs, colors='0.6', transform=pc, linewidths=0.5)
+                if plotbathy:
+                    if args.figarea == 'txla':  # don't have data outside numerical domain
+                        ax.contour(grid.lon_rho, grid.lat_rho, grid.h, hlevs, colors='0.6', transform=pc, linewidths=0.5)
+                        ax.contour(grid.lon_rho, grid.lat_rho, grid.h, [100], colors='k', transform=pc, linewidths=0.5)  # 100 m isobath in black
 
                 # plot numerical domain
-                ax.plot(nlon, nlat, ':k', transform=pc, lw=0.75, alpha=0.7)
+                if plotdomain:
+                    ax.plot(nlon, nlat, ':k', transform=pc, lw=0.75, alpha=0.7)
 
                 # data source
                 ax.text(datax, datay, 'data from optics.marine.usf.edu/', fontsize=8, transform=ax.transAxes, color='0.3')
