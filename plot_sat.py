@@ -447,10 +447,13 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                         base = 'http://pong.tamu.edu/tabswebsite/subpages/tabsquery.php?tz=UTC&units=M&Buoyname=B&table=met&datepicker='
                         suffix = '&Datatype=download&model=False'
                         url2 = base + dtstart.strftime('%Y-%m-%d') + '+-+' + dtend.strftime('%Y-%m-%d') + suffix
-                        dfw = pd.read_csv(url2, parse_dates=True, index_col=0, delimiter='\t')
-                        dfw = dfw[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
-                        # interpolate to hourly like 8771341
-                        dfw = dfw.resample('60T').interpolate()
+                        try:
+                            dfw = pd.read_csv(url2, parse_dates=True, index_col=0, delimiter='\t')
+                            dfw = dfw[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
+                            # interpolate to hourly like 8771341
+                            dfw = dfw.resample('60T').interpolate()
+                        except:
+                            continue
 
                 # add to original dataframe
                 df = pd.merge(df, dfw[['East [m/s]', 'North [m/s]']], how='outer', left_index=True, right_index=True)
