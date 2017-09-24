@@ -388,7 +388,10 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 base = 'https://tidesandcurrents.noaa.gov/cdata/DataPlot?id=g06010&bin=0&bdate='
                 suffix = '&unit=0&timeZone=UTC&view=csv'
                 url2 = base + dtstart.strftime('%Y%m%d') + '&edate=' + dtend.strftime('%Y%m%d') + suffix
-                df = pd.read_csv(url2, parse_dates=True, index_col=0)
+                try:
+                    df = pd.read_csv(url2, parse_dates=True, index_col=0)
+                except:  # sometimes there is no data
+                    continue
                 df = df[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
                 # angle needs to be in math convention for trig and between 0 and 360
                 theta = 90 - df[' Dir (true)']
@@ -402,10 +405,10 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 # import pdb; pdb.set_trace()
                 # first convert to east/west, north/south
                 # all speeds in cm/s
-                df['East [m/s]'] = df[' Speed (cm/sec)']*np.cos(np.deg2rad(theta))
-                df['North [m/s]'] = df[' Speed (cm/sec)']*np.sin(np.deg2rad(theta))
+                east = df[' Speed (cm/sec)']*np.cos(np.deg2rad(theta))
+                north = df[' Speed (cm/sec)']*np.sin(np.deg2rad(theta))
                 # then convert to along-channel (mean ebb and mean flood)
-                df['along'] = df['East [m/s]']*np.cos(diralong) - df['North [m/s]']*np.sin(diralong)
+                df['along'] = east*np.cos(diralong) - north*np.sin(diralong)
 
                 # wind
                 # NDBC data buoy 8771341
@@ -458,6 +461,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
 
                 axwind = fig.add_axes([0.51, 0.83, 0.24, 0.08])
                 ddt = 1
+                # import pdb; pdb.set_trace()
                 axwind.quiver(df.idx[::ddt], np.zeros(len(df[::ddt])), df[::ddt]['East [m/s]'], df[::ddt]['North [m/s]'], headaxislength=0,
                           headlength=0, width=0.2, units='y', scale_units='y', scale=1, color='k')
                 axwind.text(0.75, 0.02, windname, fontsize=6, transform=axwind.transAxes)
