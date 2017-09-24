@@ -418,18 +418,17 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 url2 = base + dtstart.strftime('%Y%m%d') + '&end=' + dtend.strftime('%Y%m%d') + suffix
                 dfw = pd.read_csv(url2, parse_dates=True, index_col=0)
                 dfw = dfw[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
-                # angle needs to be in math convention for trig and between 0 and 360
-                # also have to switch wind from direction from to direction to with 180 switch
-                theta = 90 - (dfw[' DIR'] - 180)
-                theta[theta<0] += 360
-                # add to original dataframe
-                dfw['East [m/s]'] = dfw[' WINDSPEED']*np.cos(np.deg2rad(theta))
-                dfw['North [m/s]'] = dfw[' WINDSPEED']*np.sin(np.deg2rad(theta))
-                df = pd.merge(df, dfw[['East [m/s]', 'North [m/s]']], how='outer', left_index=True, right_index=True)
+                if not (len(dfw[' DIR']) == 0 or np.isnan(dfw[' DIR']).sum() > 0.5*len(dfw[' DIR'])):
+                    # angle needs to be in math convention for trig and between 0 and 360
+                    # also have to switch wind from direction from to direction to with 180 switch
+                    theta = 90 - (dfw[' DIR'] - 180)
+                    theta[theta<0] += 360
+                    dfw['East [m/s]'] = dfw[' WINDSPEED']*np.cos(np.deg2rad(theta))
+                    dfw['North [m/s]'] = dfw[' WINDSPEED']*np.sin(np.deg2rad(theta))
+                    # if date == datetime(2017, 3, 2, 18, 55):
+                    #     import pdb; pdb.set_trace()
                 # if more than half of the wind entries are nan, use TABS buoys instead
-                # if date == datetime(2017, 3, 2, 18, 55):
-                #     import pdb; pdb.set_trace()
-                if len(dfw[' DIR']) == 0 or np.isnan(dfw[' DIR']).sum() > 0.5*len(dfw[' DIR']):
+                else:
                     try:
                         windname = '42035'
                         base = 'http://pong.tamu.edu/tabswebsite/subpages/tabsquery.php?tz=UTC&units=M&Buoyname=42035&table=ndbc&datepicker='
@@ -439,8 +438,6 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                         dfw = dfw[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
                         # interpolate to hourly like 8771341
                         dfw = dfw.resample('60T').interpolate()
-                        # add to original dataframe
-                        df = pd.merge(df, dfw[['East [m/s]', 'North [m/s]']], how='outer', left_index=True, right_index=True)
 
                         # throw assertion if still too many nans
                         assert not np.isnan(dfw['East [m/s]']).sum() > 0.5*len(dfw['East [m/s]'])
@@ -454,8 +451,9 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                         dfw = dfw[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
                         # interpolate to hourly like 8771341
                         dfw = dfw.resample('60T').interpolate()
-                        # add to original dataframe
-                        df = pd.merge(df, dfw[['East [m/s]', 'North [m/s]']], how='outer', left_index=True, right_index=True)
+
+                # add to original dataframe
+                df = pd.merge(df, dfw[['East [m/s]', 'North [m/s]']], how='outer', left_index=True, right_index=True)
                 df.idx = date2num(df.index.to_pydatetime())  # in units of days
 
 
