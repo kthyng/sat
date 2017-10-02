@@ -19,10 +19,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import requests
-# try:
-#     from StringIO import StringIO
-# except ImportError:
-#     from io import StringIO
 import io
 import cmocean.cm as cmo
 try:
@@ -91,8 +87,8 @@ if args.scale is not None:
 else:
     plotscale = False
 
-# loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
-loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/txla_nesting6_grid/txla_grd_v4_new.nc'
+loc = 'http://copano.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
+# loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/txla_nesting6_grid/txla_grd_v4_new.nc'
 grid = xr.open_dataset(loc)
 hlevs = [10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450]  # isobath contour depths
 
@@ -135,8 +131,8 @@ elif args.area == 'wgom':
     lat = np.linspace(18, 30, 1320)
 elif args.area == 'galv':
     dataextent = [-96.5, -93.5, 27.8, 29.8]
-    lon = np.linspace(-96.5, -93.5, 880)
-    lat = np.linspace(27.8, 29.8, 1320)
+    lon = np.linspace(-96.5, -93.5, 1320)
+    lat = np.linspace(27.8, 29.8, 880)
 LON, LAT = np.meshgrid(lon, lat[::-1])
 
 lj, li = grid.lon_rho.shape
@@ -167,14 +163,14 @@ elif args.figarea == 'galv_plume':
     figsize = (7, 7)
     top, right, left, bottom =.96, .98, .15, .01
     caxpos = [0.19, 0.79, 0.24, 0.02]  # colorbar axis position
-    datex, datey = 0.73, 0.95  # location of date on figure
+    datex, datey = 0.45, 0.9  # location of date on figure
     datax, datay = 0.41, 0.97  # location of data note on figure
     scalex, scaley = 0.07, 0.02  # location of scale
     # tuples of indices for bottom, left, top, right of domain to check for values before plotting
     # (I think these *are* named properly)
     itop = (165, np.arange(275, 280) )
     iright = (np.arange(165, 155, -1), 280)
-    ibottom = (160, np.arange(280, 275, -1))
+    ibottom = (155, np.arange(280, 275, -1))
     ileft = (np.arange(155, 165), 275)
 
 
@@ -213,9 +209,9 @@ lon = np.concatenate((grid.lon_rho[ibottom], grid.lon_rho[ileft], grid.lon_rho[i
 lat = np.concatenate((grid.lat_rho[ibottom], grid.lat_rho[ileft], grid.lat_rho[itop], grid.lat_rho[iright]))
 verts = np.vstack((lon, lat)).T
 path = Path(verts)
-ptstotal = path.contains_points(np.vstack((LON.flat, LAT.flat)).T).sum()  # how many points possible within model domain
 # true/false array of sat data points contained within area of interest
 ipts = path.contains_points(np.vstack((LON.flat, LAT.flat)).T)
+ptstotal = ipts.sum()  # how many points possible within area of interest
 
 # numerical domain
 nlon = np.concatenate((grid.lon_rho[::-1, 0], grid.lon_rho[0, :], grid.lon_rho[:, -1]))
@@ -288,8 +284,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             img = Image.open(io.BytesIO(response.content))
             # img = Image.open(StringIO(response.content))
             foo = np.asarray(img)
-            # if not date == datetime(2015, 12, 3, 17, 20):
-            #     continue
+            # if not date == datetime(2017, 1, 7, 16, 20):
             # different processing if RGB vs. embedded scalar values
             if args.var != 'rgb':
                 # mask out bad areas
@@ -320,13 +315,20 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                         aa = 0.5/np.exp(bb*1)
                         foo_mask = aa*np.exp(bb*(foo_mask/236.))  # now in logscale
             else:
+                # if date == datetime(2017, 1, 31, 18, 45):
+                # # if date == datetime(2017, 9, 27, 19, 40):
+                #     import pdb; pdb.set_trace()
+                    # continue
                 # check for too much black or white in designated important region (defined by ibottom, etc)
                 # check for black in one channel within important region
                 if (foo[:,:,0].flat[ipts] == 0).sum() > (ptstotal*(1./4)):
+                    print(filename + ': too much black in image')
                     continue
                 # check for white in one channel
                 if (foo[:,:,0].flat[ipts] >= 180).sum() > (ptstotal*(1./4)):
+                    print(filename + ': too much white in image')
                     continue
+            # import pdb; pdb.set_trace()
 
             # plot
             fig = plt.figure(figsize=figsize)#, dpi=200)  # (9.5, 10))
@@ -376,11 +378,6 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 # plot tide location
                 ax.plot(tndbc[0], tndbc[1], '^', color='k', markersize=5, transform=pc)
 
-                # tidal prediction (only goes back and forward in time 2 years)
-                # base = 'https://tidesandcurrents.noaa.gov/noaacurrents/DownloadPredictions?fmt=csv&i=30min&d='
-                # suffix = '&r=2&tz=GMT&u=2&id=g06010_1&t=24hr&i=30min&threshold=leEq&thresholdvalue='
-                # url to download data file starting the day before this sat data, week of data
-                # url2 = base + dtstart.strftime('%Y-%m-%d') + suffix
                 ##
                 dtstart = date - timedelta(days=1)
                 dtend = dtstart + timedelta(days=2)
@@ -389,26 +386,57 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 suffix = '&unit=0&timeZone=UTC&view=csv'
                 url2 = base + dtstart.strftime('%Y%m%d') + '&edate=' + dtend.strftime('%Y%m%d') + suffix
                 try:
+                    tidename = 'g06010'
                     df = pd.read_csv(url2, parse_dates=True, index_col=0)
+                    df = df[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
+                    # angle needs to be in math convention for trig and between 0 and 360
+                    theta = 90 - df[' Dir (true)']
+                    theta[theta<0] += 360
+                    # tidal data needs to be converted into along-channel direction
+                    # along-channel flood direction (from website for data), converted from compass to math angle
+                    diralong = 259
+                    diralong = 90 - diralong + 360
+                    # direbb, dirflood = 77, 282  # deg true, from tidal prediction website
+                    # direbb, dirflood = 90 - direbb, 90 - dirflood + 360  # change from compass to math angles
+                    # import pdb; pdb.set_trace()
+                    # first convert to east/west, north/south
+                    # all speeds in cm/s
+                    east = df[' Speed (cm/sec)']*np.cos(np.deg2rad(theta))
+                    north = df[' Speed (cm/sec)']*np.sin(np.deg2rad(theta))
+                    # then convert to along-channel (mean ebb and mean flood)
+                    # this is overwriting speed (magnitude) with speed (alongchannel)
+                    df[' Speed (cm/sec)'] = east*np.cos(diralong) - north*np.sin(diralong)
+                    # import pdb; pdb.set_trace()
+                    assert df[' Speed (cm/sec)'].size > 2*24*60./6  # at least two days work of data to use
+
                 except:  # sometimes there is no data
-                    continue
-                df = df[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
-                # angle needs to be in math convention for trig and between 0 and 360
-                theta = 90 - df[' Dir (true)']
-                theta[theta<0] += 360
-                # tidal data needs to be converted into along-channel direction
-                # along-channel flood direction (from website for data), converted from compass to math angle
-                diralong = 259
-                diralong = 90 - diralong + 360
-                # direbb, dirflood = 77, 282  # deg true, from tidal prediction website
-                # direbb, dirflood = 90 - direbb, 90 - dirflood + 360  # change from compass to math angles
-                # import pdb; pdb.set_trace()
-                # first convert to east/west, north/south
-                # all speeds in cm/s
-                east = df[' Speed (cm/sec)']*np.cos(np.deg2rad(theta))
-                north = df[' Speed (cm/sec)']*np.sin(np.deg2rad(theta))
-                # then convert to along-channel (mean ebb and mean flood)
-                df['along'] = east*np.cos(diralong) - north*np.sin(diralong)
+                    try:
+                        print(filename + ': no tidal data, trying model')
+                        tidename = 'model'
+                        # tidal prediction (only goes back and forward in time 2 years)
+                        base = 'https://tidesandcurrents.noaa.gov/noaacurrents/DownloadPredictions?fmt=csv&i=30min&d='
+                        suffix = '&r=2&tz=GMT&u=2&id=g06010_1&t=24hr&i=30min&threshold=leEq&thresholdvalue='
+                        # url to download data file starting the day before this sat data, week of data
+                        url2 = base + dtstart.strftime('%Y-%m-%d') + suffix
+                        df = pd.read_csv(url2, parse_dates=True, index_col=0)
+                        df = df[:dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
+                    except:  # sometimes there is no data
+                        print(filename + ': no tidal model, using derivative of tidal height data')
+
+                        # NDBC data buoy 8771341 for tidal heights
+                        tidename = '8771341 d/dt'
+                        base = 'https://tidesandcurrents.noaa.gov/api/datagetter?product=water_level&application=NOS.COOPS.TAC.WL&station=8771341&begin_date='
+                        suffix = '&datum=MLLW&units=metric&time_zone=GMT&format=csv'
+                        # base = 'https://tidesandcurrents.noaa.gov/cgi-bin/newdata.cgi?type=met&id=8771341&begin='
+                        # suffix = '&units=metric&timezone=GMT&mode=csv&interval=h'
+                        url2 = base + (dtstart - timedelta(days=1)).strftime('%Y%m%d') + '&end_date=' + dtend.strftime('%Y%m%d') + suffix
+                        df = pd.read_csv(url2, parse_dates=True, index_col=0)
+                        # import pdb; pdb.set_trace()
+                        # ad hoc calculation of tidal speed from the heights
+                        df[' Speed (cm/sec)'] = (df[' Water Level'].rolling(window=15, center=True).mean().diff().rolling(window=15, center=True).mean()*7e3).shift(periods=50)
+                        df = df[dtstart.strftime('%Y%m%d'):dtend.strftime('%Y%m%d') + ' 12:00'] # go until noon the following day
+
+                        # continue
 
                 # wind
                 # NDBC data buoy 8771341
@@ -460,35 +488,45 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 df.idx = date2num(df.index.to_pydatetime())  # in units of days
 
 
-                axwind = fig.add_axes([0.51, 0.83, 0.24, 0.08])
+                axwind = fig.add_axes([0.65, 0.81, 0.32, 0.1])
                 ddt = 1
                 # import pdb; pdb.set_trace()
                 axwind.quiver(df.idx[::ddt], np.zeros(len(df[::ddt])), df[::ddt]['East [m/s]'], df[::ddt]['North [m/s]'], headaxislength=0,
                           headlength=0, width=0.2, units='y', scale_units='y', scale=1, color='k')
-                axwind.text(0.75, 0.02, windname, fontsize=6, transform=axwind.transAxes)
+                axwind.text(0.01, 0.02, windname, fontsize=7, transform=axwind.transAxes)
+                axwind.text(0.01, 0.85, 'm/s', fontsize=7, transform=axwind.transAxes)
                 axwind.get_yaxis().set_ticks(np.arange(-10,15,5))
                 axwind.get_yaxis().set_ticklabels(['', '-5', '', '5', ''])
-                axwind.set_ylim(-10.1,10.1)
+                axwind.set_ylim(-10.5,10.5)
                 axwind.axvline(x=date2num(date), ymin=0, ymax=1)
                 [s.set_visible(False) for s in axwind.spines.values()]
                 axwind.get_xaxis().set_ticks([])
+                axwind.tick_params(axis='x', which='both', bottom='off', labelbottom='off')
                 [t.set_visible(False) for t in axwind.get_xticklines()]
+                axwind.grid(color='0.2', linestyle='-', linewidth=0.1, which='both')
 
-                axtide = fig.add_axes([0.51, 0.74, 0.24, 0.08], sharex=axwind)
-                axtide.plot(df.idx, df['along']/100, color='k')
+                axtide = fig.add_axes([0.65, 0.7, 0.32, 0.1], sharex=axwind)
+                axtide.plot(df.idx, df[' Speed (cm/sec)']/100, color='k')
+                axtide.text(0.01, 0.04, tidename, fontsize=7, transform=axtide.transAxes)
+                axtide.text(0.01, 0.85, 'm/s', fontsize=7, transform=axtide.transAxes)
+                # label ebb and flood
+                axtide.text(0.88, 0.85, 'flood', fontsize=7, transform=axtide.transAxes)
+                axtide.text(0.88, 0.02, 'ebb', fontsize=7, transform=axtide.transAxes)
                 axtide.get_yaxis().set_ticks(np.arange(-1,1.5,0.5))
                 axtide.get_yaxis().set_ticklabels(['', '-0.5', '', '0.5', ''])
-                axtide.set_ylim(-1.3, 1.3)
+                axtide.set_ylim(-1.4, 1.4)
                 plt.xticks(rotation=70)
                 axtide.axhline(y=0.0, xmin=0, xmax=1, color='k', linestyle=':', linewidth=0.5)
                 axtide.axvline(x=date2num(date), ymin=0, ymax=1)
                 [s.set_visible(False) for s in axtide.spines.values()]
-                hours = mpl.dates.HourLocator(byhour=np.arange(0,24,12))
+                hours = mpl.dates.HourLocator(byhour=np.arange(0,24,3))
                 axtide.xaxis.set_minor_locator(hours)
                 days = mpl.dates.DayLocator()
                 axtide.xaxis.set_major_locator(days)
                 axtide.xaxis.set_major_formatter(mpl.dates.DateFormatter('%d'))
-                # import pdb; pdb.set_trace()
+                axtide.autoscale(enable=True, axis='x', tight=True)
+                axtide.grid(color='0.2', linestyle='-', linewidth=0.1, which='both')
+                # axtide.set_xlim(dtstart.strftime('%Y-%m-%d'), dtend.strftime('%Y%m%d') + ' 12:00')
 
 
 
@@ -497,7 +535,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 ax.text(datax, datay, 'data from optics.marine.usf.edu/', fontsize=8, transform=ax.transAxes, color='0.3')
 
             # Date and time
-            ax.text(datex, datey, date.strftime('%Y %b %d %H:%M'), fontsize=11, color='0.2', transform=ax.transAxes)#,
+            ax.text(datex, datey, date.strftime('%Y\n%b %d\n%H:%M'), fontsize=12, color='0.2', transform=ax.transAxes)#,
                     # bbox=dict(facecolor='0.8', edgecolor='0.8', boxstyle='round'))
 
             # scale
