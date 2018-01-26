@@ -56,6 +56,7 @@ parser.add_argument('--plotdomain', default=None, type=str, help='Plot numerical
 parser.add_argument('--plotshipping', default=None, type=str, help='Plot shipping lanes or not (any string input will cause to plot)')
 parser.add_argument('--plottide', default=None, type=str, help='Plot tides or not (any string input will cause to plot)')
 parser.add_argument('--plotsource', default=None, type=str, help='Plot sat data link or not (any string input will cause to plot)')
+parser.add_argument('--plotlocs', default=None, type=str, help='Plot input locations, currently CTD sampling.')
 parser.add_argument('--scale', default=None, type=int, help='To plot reference scale, input the reference km value as as int.')
 args = parser.parse_args()
 
@@ -87,6 +88,10 @@ if args.scale is not None:
     scale = args.scale
 else:
     plotscale = False
+if args.plotlocs is not None:
+    plotlocs = True
+else:
+    plotlocs = False
 
 loc = '../grid.nc'
 # loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
