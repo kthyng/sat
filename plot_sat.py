@@ -297,13 +297,12 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             whichsat = File.string[0]  # which satellite
             date = datetime(args.year, 1, 1) + timedelta(days=int(day) - 1) \
                     + timedelta(hours=int(time[:2])) + timedelta(minutes=int(time[2:]))
-            filename = 'figures/' + args.var + '/' + args.figarea + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '.png'
-            # filename = 'figures/' + args.var + '/' + args.figarea + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area + '-ctds' + '.png'
+            filename = 'figures/' + args.var + '/' + args.figarea + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area
             print(date)
             # if not date > datetime(2017,11,1):
             #     continue
             # import pdb; pdb.set_trace()
-            if os.path.exists(filename):
+            if os.path.exists(filename + '.png'):
                 continue
             # open and load in image
             response = requests.get(image_loc)
@@ -397,6 +396,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             if plotlocs:
                 pts = np.loadtxt('kmlpts.txt')
                 ax.plot(pts[:,0], pts[:,1], 'yo', transform=pc, markersize=4)
+                filename += '-locs'
 
             # plot shipping lanes
             if plotshipping:
@@ -596,6 +596,6 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 cbtick = plt.getp(cb.ax.axes, 'yticklabels')
                 plt.setp(cbtick, color='0.2')
 
-            fig.savefig(filename, bbox_inches='tight')
+            fig.savefig(filename + '.png', bbox_inches='tight')
             # import pdb; pdb.set_trace()
             plt.close(fig)
