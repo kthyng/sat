@@ -9,6 +9,7 @@ run plot_sat 2014 "ci" "wgom" "wgom"
 run plot_sat 2017 "ci" "gcoos" "txla"
 run plot_sat 2017 "ci" "wgom" "txla" --plotsource 'yes'
 run plot_sat 2017 "rgb" "galv" "galv_plume" --plotshipping 'yes' --plottide 'yes' --scale 5
+run plot_sat 2017 "rgb" "galv" "galv_bay" --plotshipping 'yes' --plottide 'yes' --scale 5
 
 ** not CI for GCOOS before 2016 -- GCOOS is appearing lighter for CI in 2016 and 2017 than in WGOM
 '''
@@ -49,7 +50,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('year', type=int, help='What year to plot')
 parser.add_argument('var', type=str, help='What field to plot: "sst" (sea surface temp) or "oci" (chlorophyll-a with good correction algorithm) or "ci" (chlorophyll-a with no sun glint) or "rgb" (color) or "CHL" (chlorophyll-a)')
 parser.add_argument('area', type=str, help='Area getting data from to plot: "gcoos" (full Gulf of Mexico) or "wgom" (western Gulf of Mexico) or "galv"')
-parser.add_argument('figarea', type=str, help='What area in Gulf to plot data in: "wgom" (western Gulf of Mexico) or "txla" (TXLA domain) or "galv_plume"')
+parser.add_argument('figarea', type=str, help='What area in Gulf to plot data in: "wgom" (western Gulf of Mexico) or "txla" (TXLA domain) or "galv_plume" or "galv_bay"')
 parser.add_argument('--plotbathy', default=None, type=str, help='Plot bathymetry from NWGOM numerical model or not (any string input will cause to plot)')
 parser.add_argument('--plotdomain', default=None, type=str, help='Plot numerical domain from NWGOM numerical model or not (any string input will cause to plot)')
 parser.add_argument('--plotshipping', default=None, type=str, help='Plot shipping lanes or not (any string input will cause to plot)')
@@ -87,7 +88,8 @@ if args.scale is not None:
 else:
     plotscale = False
 
-loc = 'http://copano.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
+loc = '../grid.nc'
+# loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
 # loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/txla_nesting6_grid/txla_grd_v4_new.nc'
 grid = xr.open_dataset(loc)
 hlevs = [10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450]  # isobath contour depths
@@ -160,6 +162,20 @@ elif args.figarea == 'txla':
     iright = (np.arange(lj, 0, -1), 0)
 elif args.figarea == 'galv_plume':
     figextent = [-94.95, -94.4, 29.1, 29.6]
+    figsize = (7, 7)
+    top, right, left, bottom =.96, .98, .15, .01
+    caxpos = [0.19, 0.79, 0.24, 0.02]  # colorbar axis position
+    datex, datey = 0.45, 0.9  # location of date on figure
+    datax, datay = 0.41, 0.97  # location of data note on figure
+    scalex, scaley = 0.07, 0.02  # location of scale
+    # tuples of indices for bottom, left, top, right of domain to check for values before plotting
+    # (I think these *are* named properly)
+    itop = (165, np.arange(275, 280) )
+    iright = (np.arange(165, 155, -1), 280)
+    ibottom = (155, np.arange(280, 275, -1))
+    ileft = (np.arange(155, 165), 275)
+elif args.figarea == 'galv_bay':
+    figextent = [-95.25, -94.455, 29, 29.83]
     figsize = (7, 7)
     top, right, left, bottom =.96, .98, .15, .01
     caxpos = [0.19, 0.79, 0.24, 0.02]  # colorbar axis position
@@ -276,7 +292,12 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             whichsat = File.string[0]  # which satellite
             date = datetime(args.year, 1, 1) + timedelta(days=int(day) - 1) \
                     + timedelta(hours=int(time[:2])) + timedelta(minutes=int(time[2:]))
-            filename = 'figures/' + args.var + '/' + args.figarea + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area + '.png'
+            filename = 'figures/' + args.var + '/' + args.figarea + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '.png'
+            # filename = 'figures/' + args.var + '/' + args.figarea + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area + '-ctds' + '.png'
+            print(date)
+            # if not date > datetime(2017,11,1):
+            #     continue
+            # import pdb; pdb.set_trace()
             if os.path.exists(filename):
                 continue
             # open and load in image
@@ -367,6 +388,11 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             if plotdomain:
                 ax.plot(nlon, nlat, ':k', transform=pc, lw=0.75, alpha=0.7)
 
+            # overlay kml points for CTD locs
+            if plotlocs:
+                pts = np.loadtxt('kmlpts.txt')
+                ax.plot(pts[:,0], pts[:,1], 'yo', transform=pc, markersize=4)
+
             # plot shipping lanes
             if plotshipping:
                 # shipping lanes
@@ -396,9 +422,6 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                     # along-channel flood direction (from website for data), converted from compass to math angle
                     diralong = 259
                     diralong = 90 - diralong + 360
-                    # direbb, dirflood = 77, 282  # deg true, from tidal prediction website
-                    # direbb, dirflood = 90 - direbb, 90 - dirflood + 360  # change from compass to math angles
-                    # import pdb; pdb.set_trace()
                     # first convert to east/west, north/south
                     # all speeds in cm/s
                     east = df[' Speed (cm/sec)']*np.cos(np.deg2rad(theta))
