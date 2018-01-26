@@ -9,7 +9,7 @@ run plot_sat 2014 "ci" "wgom" "wgom"
 run plot_sat 2017 "ci" "gcoos" "txla"
 run plot_sat 2017 "ci" "wgom" "txla" --plotsource 'yes'
 run plot_sat 2017 "rgb" "galv" "galv_plume" --plotshipping 'yes' --plottide 'yes' --scale 5
-run plot_sat 2017 "rgb" "galv" "galv_bay" --plotshipping 'yes' --plottide 'yes' --scale 5
+run plot_sat 2017 "rgb" "galv" "galv_bay" --plotsource 'yes' --plottide 'yes' --scale 5
 
 ** not CI for GCOOS before 2016 -- GCOOS is appearing lighter for CI in 2016 and 2017 than in WGOM
 '''
@@ -179,20 +179,26 @@ elif args.figarea == 'galv_plume':
     iright = (np.arange(165, 155, -1), 280)
     ibottom = (155, np.arange(280, 275, -1))
     ileft = (np.arange(155, 165), 275)
+    windextent = [0.65, 0.81, 0.32, 0.1]  # for wind box overlay
+    tideextent = [0.65, 0.7, 0.32, 0.1]  # for tide box overlay
+    overlayfont = 11
 elif args.figarea == 'galv_bay':
-    figextent = [-95.25, -94.455, 29, 29.83]
+    figextent = [-95.3, -94.455, 28.92, 29.8]
     figsize = (7, 7)
     top, right, left, bottom =.96, .98, .15, .01
     caxpos = [0.19, 0.79, 0.24, 0.02]  # colorbar axis position
-    datex, datey = 0.45, 0.9  # location of date on figure
-    datax, datay = 0.41, 0.97  # location of data note on figure
-    scalex, scaley = 0.07, 0.02  # location of scale
+    datex, datey = 0.025, 0.96  # location of date on figure
+    datax, datay = 0.675, 0.983  # location of data note on figure
+    scalex, scaley = 0.06, 0.12  # location of scale
     # tuples of indices for bottom, left, top, right of domain to check for values before plotting
     # (I think these *are* named properly)
     itop = (165, np.arange(275, 280) )
     iright = (np.arange(165, 155, -1), 280)
     ibottom = (155, np.arange(280, 275, -1))
     ileft = (np.arange(155, 165), 275)
+    windextent = [0.22, 0.54, 0.26, 0.093]  # for wind box overlay
+    tideextent = [0.22, 0.44, 0.26, 0.093]  # for tide box overlay
+    overlayfont = 10
 
 
 if args.var == 'sst':
@@ -516,7 +522,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 df.idx = date2num(df.index.to_pydatetime())  # in units of days
 
 
-                axwind = fig.add_axes([0.65, 0.81, 0.32, 0.1])
+                axwind = fig.add_axes(windextent)
                 ddt = 1
                 # import pdb; pdb.set_trace()
                 axwind.quiver(df.idx[::ddt], np.zeros(len(df[::ddt])), df[::ddt]['East [m/s]'], df[::ddt]['North [m/s]'], headaxislength=0,
@@ -524,7 +530,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 axwind.text(0.01, 0.02, windname, fontsize=7, transform=axwind.transAxes)
                 axwind.text(0.01, 0.85, 'm/s', fontsize=7, transform=axwind.transAxes)
                 axwind.get_yaxis().set_ticks(np.arange(-10,15,5))
-                axwind.get_yaxis().set_ticklabels(['', '-5', '', '5', ''])
+                axwind.get_yaxis().set_ticklabels(['', '-5', '', '5', ''], fontsize=overlayfont)
                 axwind.set_ylim(-10.5,10.5)
                 axwind.axvline(x=date2num(date), ymin=0, ymax=1)
                 [s.set_visible(False) for s in axwind.spines.values()]
@@ -533,7 +539,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 [t.set_visible(False) for t in axwind.get_xticklines()]
                 axwind.grid(color='0.2', linestyle='-', linewidth=0.1, which='both')
 
-                axtide = fig.add_axes([0.65, 0.7, 0.32, 0.1], sharex=axwind)
+                axtide = fig.add_axes(tideextent, sharex=axwind)
                 axtide.plot(df.idx, df[' Speed (cm/sec)']/100, color='k')
                 axtide.text(0.01, 0.04, tidename, fontsize=7, transform=axtide.transAxes)
                 axtide.text(0.01, 0.85, 'm/s', fontsize=7, transform=axtide.transAxes)
@@ -541,7 +547,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 axtide.text(0.88, 0.85, 'flood', fontsize=7, transform=axtide.transAxes)
                 axtide.text(0.88, 0.02, 'ebb', fontsize=7, transform=axtide.transAxes)
                 axtide.get_yaxis().set_ticks(np.arange(-1,1.5,0.5))
-                axtide.get_yaxis().set_ticklabels(['', '-0.5', '', '0.5', ''])
+                axtide.get_yaxis().set_ticklabels(['', '-0.5', '', '0.5', ''], fontsize=overlayfont)
                 axtide.set_ylim(-1.4, 1.4)
                 plt.xticks(rotation=70)
                 axtide.axhline(y=0.0, xmin=0, xmax=1, color='k', linestyle=':', linewidth=0.5)
@@ -560,10 +566,10 @@ for row in soup.findAll('a')[5:]:  # loop through each day
 
             # data source
             if plotsource:
-                ax.text(datax, datay, 'data from optics.marine.usf.edu/', fontsize=8, transform=ax.transAxes, color='0.3')
+                ax.text(datax, datay, 'data from optics.marine.usf.edu', fontsize=8, transform=ax.transAxes, color='0.3')
 
             # Date and time
-            ax.text(datex, datey, date.strftime('%Y\n%b %d\n%H:%M'), fontsize=12, color='0.2', transform=ax.transAxes)#,
+            ax.text(datex, datey, date.strftime('%Y %b %d %H:%M'), fontsize=14, color='0.2', transform=ax.transAxes)#,
                     # bbox=dict(facecolor='0.8', edgecolor='0.8', boxstyle='round'))
 
             # scale
