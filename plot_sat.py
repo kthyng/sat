@@ -333,7 +333,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                     + timedelta(hours=int(time[:2])) + timedelta(minutes=int(time[2:]))
             filename = filebase + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area
             print(date)
-            if not date > datetime(2017,10,2):
+            if not date > datetime(2017,12,10):
                 continue
             # import pdb; pdb.set_trace()
             if os.path.exists(filename + '.png'):
