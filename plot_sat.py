@@ -9,15 +9,13 @@ run plot_sat 2014 "ci" "wgom" "wgom"
 run plot_sat 2017 "ci" "gcoos" "txla"
 run plot_sat 2017 "ci" "wgom" "txla" --plotsource 'yes'
 run plot_sat 2017 "rgb" "galv" "galv_plume" --plotshipping 'yes' --plottide 'yes' --scale 5
-run plot_sat 2017 "rgb" "galv" "galv_bay" --plotsource 'yes' --plottide 'yes' --scale 5
+run plot_sat 2017 "rgb" "galv" "galv_bay" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 100
+run plot_sat 2017 "rgb" "galv" "galv_plume" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 100 --click 'yes'
 
 ** not CI for GCOOS before 2016 -- GCOOS is appearing lighter for CI in 2016 and 2017 than in WGOM
 '''
 
-import matplotlib as mpl
-mpl.use("Agg") # set matplotlib to use the backend that does not require a windowing system
 import numpy as np
-import matplotlib.pyplot as plt
 from PIL import Image
 import requests
 import io
@@ -26,14 +24,9 @@ try:
     from bs4 import BeautifulSoup
 except:
     from BeautifulSoup import BeautifulSoup
-import matplotlib.patches as patches
-import matplotlib as mpl
-from matplotlib.path import Path
 import pdb
 from datetime import datetime, timedelta
 import argparse
-from matplotlib.ticker import LogFormatter
-from matplotlib.colors import LogNorm
 import os
 import cartopy
 ccrs = cartopy.crs
@@ -43,7 +36,6 @@ import matplotlib.ticker as mticker
 import xarray as xr
 import cartopy.io.shapereader as shpreader
 import pandas as pd
-from matplotlib.dates import date2num
 
 # Input arguments: year and what to plot
 parser = argparse.ArgumentParser()
@@ -57,10 +49,12 @@ parser.add_argument('--plotshipping', default=None, type=str, help='Plot shippin
 parser.add_argument('--plottide', default=None, type=str, help='Plot tides or not (any string input will cause to plot)')
 parser.add_argument('--plotsource', default=None, type=str, help='Plot sat data link or not (any string input will cause to plot)')
 parser.add_argument('--plotlocs', default=None, type=str, help='Plot input locations, currently CTD sampling.')
+parser.add_argument('--plotblobs', default=None, type=str, help='Plot blobs for detection.')
 parser.add_argument('--scale', default=None, type=int, help='To plot reference scale, input the reference km value as as int.')
+parser.add_argument('--dpi', default=100, type=int, help='dpi as int.')
+parser.add_argument('--click', default=None, type=str, help='Pause each image to possibly click points.')
 args = parser.parse_args()
 
-mpl.rcParams.update({'font.size': 11})
 
 # any input for plotbathy will cause bathy to plot
 if args.plotbathy is not None:
@@ -92,6 +86,29 @@ if args.plotlocs is not None:
     plotlocs = True
 else:
     plotlocs = False
+if args.plotblobs is not None:
+    plotblobs = True
+else:
+    plotblobs = False
+if args.click is not None:
+    click = True
+else:
+    click = False
+dpi = args.dpi
+
+
+if not click:  # if we want to click, can't use this backend since need GUI
+    import matplotlib as mpl
+    mpl.use("Agg") # set matplotlib to use the backend that does not require a windowing system
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib as mpl
+from matplotlib.path import Path
+from matplotlib.ticker import LogFormatter
+from matplotlib.colors import LogNorm
+from matplotlib.dates import date2num
+mpl.rcParams.update({'font.size': 11})
+
 
 loc = '../grid.nc'
 # loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
@@ -171,7 +188,7 @@ elif args.figarea == 'galv_plume':
     top, right, left, bottom =.96, .98, .15, .01
     caxpos = [0.19, 0.79, 0.24, 0.02]  # colorbar axis position
     datex, datey = 0.45, 0.9  # location of date on figure
-    datax, datay = 0.41, 0.97  # location of data note on figure
+    datax, datay = 0.65, 0.01  # location of data note on figure
     scalex, scaley = 0.07, 0.02  # location of scale
     # tuples of indices for bottom, left, top, right of domain to check for values before plotting
     # (I think these *are* named properly)
@@ -277,6 +294,17 @@ if not os.path.exists('figures/' + args.var):  # make sure directory exists
     os.makedirs('figures/' + args.var)
 if not os.path.exists('figures/' + args.var + '/' + args.figarea):  # make sure directory exists
     os.makedirs('figures/' + args.var + '/' + args.figarea)
+# foos = []
+filebase = 'figures/' + args.var + '/' + args.figarea + '/'
+if click:
+    filebase += 'click/'
+    clickbase = '/'.join(['calcs', 'pts'] + filebase.split('/')[1:])
+    if not os.path.exists(filebase):  # make sure directory exists
+        os.makedirs(filebase)
+    for i in range(len(clickbase.split('/')[:-1])):
+        loc = '/'.join(clickbase.split('/')[:i+1])
+        if not os.path.exists(loc):  # make sure directory exists
+            os.makedirs(loc)
 
 for row in soup.findAll('a')[5:]:  # loop through each day
     # print row
@@ -303,10 +331,10 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             whichsat = File.string[0]  # which satellite
             date = datetime(args.year, 1, 1) + timedelta(days=int(day) - 1) \
                     + timedelta(hours=int(time[:2])) + timedelta(minutes=int(time[2:]))
-            filename = 'figures/' + args.var + '/' + args.figarea + '/' + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area
+            filename = filebase + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area
             print(date)
-            # if not date > datetime(2017,11,1):
-            #     continue
+            if not date > datetime(2017,10,2):
+                continue
             # import pdb; pdb.set_trace()
             if os.path.exists(filename + '.png'):
                 continue
@@ -360,7 +388,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                     print(filename + ': too much white in image')
                     continue
             # import pdb; pdb.set_trace()
-
+            # foos.append(foo)
             # plot
             fig = plt.figure(figsize=figsize)#, dpi=200)  # (9.5, 10))
             fig.subplots_adjust(top=top, right=right, left=left, bottom=bottom)
@@ -569,13 +597,34 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 ax.text(datax, datay, 'data from optics.marine.usf.edu', fontsize=8, transform=ax.transAxes, color='0.3')
 
             # Date and time
-            ax.text(datex, datey, date.strftime('%Y %b %d %H:%M'), fontsize=14, color='0.2', transform=ax.transAxes)#,
+            if args.figarea != 'galv_plume':
+                ax.text(datex, datey, date.strftime('%Y %b %d %H:%M'), fontsize=14, color='0.2', transform=ax.transAxes)#,
+            else:
+                ax.text(datex, datey, date.strftime('%Y\n%b %d\n%H:%M'), fontsize=14, color='0.2', transform=ax.transAxes)#,
                     # bbox=dict(facecolor='0.8', edgecolor='0.8', boxstyle='round'))
 
             # scale
             # https://stackoverflow.com/questions/32333870/how-can-i-show-a-km-ruler-on-a-cartopy-matplotlib-plot
             if plotscale:
                 scale_bar(ax, scale, location=(scalex, scaley))
+
+            # if plotblobs:
+                # from skimage.feature import blob_dog, blob_log, blob_doh
+                # from skimage.color import rgb2gray
+                # y1, y2 = 150, 310
+                # x1, x2 = 690, 920
+                #
+                # image = rgb2gray(foo)[y1:y2, x1:x2]
+                # blobs_log = blob_log(image, min_sigma=10, max_sigma=40, threshold=.05)
+                # blobs_log[:, 2] = blobs_log[:, 2] * np.sqrt(2)
+                # for blob in blobs_log:
+                #     y, x, r = blob
+                #     if (60 < y) and (y < 100) and (90 < x) and (x < 150):
+                #         # import pdb; pdb.set_trace()
+                #         # c = plt.Circle((x+x1, y+y1), r, color='y', linewidth=2, fill=False, transform=pc)
+                #         # ax.add_patch(c)
+                #         ax.scatter()
+
 
             # Colorbar in upper left corner
             if args.var != 'rgb':
@@ -602,6 +651,21 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 cbtick = plt.getp(cb.ax.axes, 'yticklabels')
                 plt.setp(cbtick, color='0.2')
 
-            fig.savefig(filename + '.png', bbox_inches='tight')
+            if click:
+                # Delete cancels last input
+                # accumulates points until enter key is pushed
+                pts = plt.ginput(timeout=0, n=-1)
+                if len(pts) > 0:
+                    x, y = zip(*pts)
+                    ax.plot(x, y, 'y', lw=2)
+                    clickname = clickbase + filename.split('/')[-1]
+                    np.savez(clickname + '.npz', pts=pts)
+                else:
+                    # for clicking, don't save if no plume clicked
+                    plt.close(fig)
+                    continue
+
+            fig.savefig(filename + '.png', bbox_inches='tight', dpi=dpi)
             # import pdb; pdb.set_trace()
             plt.close(fig)
+# np.savez('notebooks/foos-' + str(args.year) + '.npz', foos=foos)
