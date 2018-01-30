@@ -329,7 +329,10 @@ for i, File in enumerate(Files):
         stats = pd.concat([stats, pd.DataFrame(index=[date], data=t)], axis=1)
     else:  # adding rows subsequently
         for key in t.keys():
-            stats[key].loc[date] = t[key]
+            if key not in stats.keys():
+                stats[key] = t[key]
+            else:
+                stats[key].loc[date] = t[key]
 
     stats.to_csv('/'.join(File.split('/')[:-1] + [str(year)]) + '.csv')
 
