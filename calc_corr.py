@@ -5,6 +5,7 @@ import seaborn as sns
 import shapely.geometry
 import numpy as np
 from scipy.signal import argrelextrema
+import os
 
 year = 2017
 
@@ -12,7 +13,11 @@ base = 'calcs/pts/rgb/galv_plume/click/'
 Files = glob(base + str(year) + '*.npz')
 
 # stats will hold numbers for correlation
-stats = pd.DataFrame()
+statsname = base + str(year) + '.csv'
+if os.path.exists(statsname):
+    stats = pd.read_csv(statsname, parse_dates=True, index_col=0)
+else:
+    stats = pd.DataFrame()
 
 # load pts down Galv channel
 ptsch = np.load(base + 'channel_pts.npz')['pts']
@@ -52,6 +57,10 @@ def cart2chan(pts):
 
 # File = Files[0]
 for i, File in enumerate(Files):
+
+    # check if this file already in stats, in which case move to next loop
+    if datetime.strptime(File.split('/')[-1], '%Y-%m-%dT%H%M-galv.npz') in stats.index:
+        continue
 
     # get pandas timestamp object from filename
     date = pd.Timestamp(File.split('/')[-1].split('.')[0][:-5])
@@ -99,68 +108,113 @@ for i, File in enumerate(Files):
 
     url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8771341&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
     url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
-    windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Gust [m/s]', 'AtmPr [MB]', 'Water Level [m]', 'AirT [deg C]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
-    windtemp = windtemp.resample('15min', base=0).mean()
-    # save good values
-    wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-    if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-        url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8771486&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
-        url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
+    try:
         windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Gust [m/s]', 'AtmPr [MB]', 'Water Level [m]', 'AirT [deg C]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
         windtemp = windtemp.resample('15min', base=0).mean()
         # save good values
-        wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-        if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-            url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8771013&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
+        for col in cols:  # save column by column so it aligns properly
+            wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+    except:
+        pass
+    finally:
+        if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+            url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8771486&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
             url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
-            windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Conductivity [mS/cm]','Salinity', 'Gust [m/s]', 'AtmPr [MB]', 'Water Level [m]', 'AirT [deg C]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
-            windtemp = windtemp.resample('15min', base=0).mean()
-            # save good values
-            wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-            if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-                url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=42035&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
-                url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
-                windtemp = pd.read_table(url, parse_dates=True, index_col=0).drop(['Gust [m/s]', 'AtmPr [MB]', 'AirT [deg C]', 'Dew pt [deg C]', 'WaterT [deg C]', 'RelH [%]', 'Wave Ht [m]', 'Wave Pd [s]'], axis=1)
-                windtemp = windtemp.resample('60min', base=0).interpolate().resample('15min', base=0).interpolate()
+            try:
+                windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Gust [m/s]', 'AtmPr [MB]', 'Water Level [m]', 'AirT [deg C]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
+                windtemp = windtemp.resample('15min', base=0).mean()
                 # save good values
-                wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-                if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-                    url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=B&table=met&Datatype=download&units=M&tz=UTC&model=False&datepicker='
+                for col in cols:  # save column by column so it aligns properly
+                    wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+            except:
+                pass
+            finally:
+                if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+                    url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8771013&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
                     url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
-                    windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['AirT [deg C]', 'AtmPr [MB]', 'Gust [m/s]', 'Comp [deg M]', 'Tx', 'Ty', 'PAR ', 'RelH [%]'], axis=1)
-                    windtemp = windtemp.resample('15min', base=0).interpolate()
-                    # save good values
-                    wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-                    if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-                        url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8770971&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
-                        url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
-                        windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Water Level [m]', 'Gust [m/s]', 'AirT [deg C]', 'AtmPr [MB]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
+                    try:
+                        windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Conductivity [mS/cm]','Salinity', 'Gust [m/s]', 'AtmPr [MB]', 'Water Level [m]', 'AirT [deg C]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
                         windtemp = windtemp.resample('15min', base=0).mean()
                         # save good values
-                        wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-                        if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-                            url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8771972&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
+                        for col in cols:  # save column by column so it aligns properly
+                            wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+                    except:
+                        pass
+                    finally:
+                        if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+                            url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=42035&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
                             url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
-                            windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Water Level [m]', 'Gust [m/s]', 'AirT [deg C]', 'AtmPr [MB]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
-                            windtemp = windtemp.resample('15min', base=0).mean()
-                            # save good values
-                            wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-                            if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-                                url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8770808&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
-                                url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
-                                windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Water Level [m]', 'Gust [m/s]', 'AirT [deg C]', 'AtmPr [MB]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
-                                windtemp = windtemp.resample('15min', base=0).mean()
+                            try:
+                                windtemp = pd.read_table(url, parse_dates=True, index_col=0).drop(['Gust [m/s]', 'AtmPr [MB]', 'AirT [deg C]', 'Dew pt [deg C]', 'WaterT [deg C]', 'RelH [%]', 'Wave Ht [m]', 'Wave Pd [s]'], axis=1)
+                                windtemp = windtemp.resample('60min', base=0).interpolate().resample('15min', base=0).interpolate()
                                 # save good values
-                                wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-                                if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-                                    url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8770613&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
+                                for col in cols:  # save column by column so it aligns properly
+                                    wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+                            except:
+                                pass
+                            finally:
+                                if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+                                    url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=B&table=met&Datatype=download&units=M&tz=UTC&model=False&datepicker='
                                     url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
-                                    windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['AirT [deg C]', 'AtmPr [MB]', 'Conductivity [mS/cm]', 'Gust [m/s]', 'RelH [%]', 'Salinity', 'Water Level [m]', 'WaterT [deg C]'], axis=1)
-                                    windtemp = windtemp.resample('15min', base=0).mean()
-                                    # save good values
-                                    wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()]] = windtemp[~windtemp['East [m/s]'].isnull()]
-                                    if (wind['East [m/s]'].isnull().sum() > 3) or (wind.index[-1] < date) or (wind.index[0] > d1):
-                                        raise Exception("some wind data missing")  # indices where need data still
+                                    try:
+                                        windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['AirT [deg C]', 'AtmPr [MB]', 'Gust [m/s]', 'Comp [deg M]', 'Tx', 'Ty', 'PAR ', 'RelH [%]'], axis=1)
+                                        windtemp = windtemp.resample('15min', base=0).interpolate()
+                                        # save good values
+                                        for col in cols:  # save column by column so it aligns properly
+                                            wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+                                    except:
+                                        pass
+                                    finally:
+                                        if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+                                            url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8770971&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
+                                            url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
+                                            try:
+                                                windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Water Level [m]', 'Gust [m/s]', 'AirT [deg C]', 'AtmPr [MB]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
+                                                windtemp = windtemp.resample('15min', base=0).mean()
+                                                # save good values
+                                                for col in cols:  # save column by column so it aligns properly
+                                                    wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+                                            except:
+                                                pass
+                                            finally:
+                                                if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+                                                    url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8771972&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
+                                                    url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
+                                                    try:
+                                                        windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Water Level [m]', 'Gust [m/s]', 'AirT [deg C]', 'AtmPr [MB]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
+                                                        windtemp = windtemp.resample('15min', base=0).mean()
+                                                        # save good values
+                                                        for col in cols:  # save column by column so it aligns properly
+                                                            wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+                                                    except:
+                                                        pass
+                                                    finally:
+                                                        if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+                                                            url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8770808&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
+                                                            url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
+                                                            try:
+                                                                windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['Water Level [m]', 'Gust [m/s]', 'AirT [deg C]', 'AtmPr [MB]', 'RelH [%]', 'WaterT [deg C]'], axis=1)
+                                                                windtemp = windtemp.resample('15min', base=0).mean()
+                                                                # save good values
+                                                                for col in cols:  # save column by column so it aligns properly
+                                                                    wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+                                                            except:
+                                                                pass
+                                                            finally:
+                                                                if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+                                                                    url = baseurl + '/tabswebsite/subpages/tabsquery.php?Buoyname=8770613&table=nos&Datatype=download&units=M&tz=UTC&model=False&datepicker='
+                                                                    url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
+                                                                    try:
+                                                                        windtemp = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999).drop(['AirT [deg C]', 'AtmPr [MB]', 'Conductivity [mS/cm]', 'Gust [m/s]', 'RelH [%]', 'Salinity', 'Water Level [m]', 'WaterT [deg C]'], axis=1)
+                                                                        windtemp = windtemp.resample('15min', base=0).mean()
+                                                                        # save good values
+                                                                        for col in cols:  # save column by column so it aligns properly
+                                                                            wind.loc[windtemp.index[~windtemp['East [m/s]'].isnull()],col] = windtemp.loc[~windtemp['East [m/s]'].isnull(),col]
+                                                                    except:
+                                                                        pass
+                                                                    finally:
+                                                                        if (wind['East [m/s]'].isnull().sum() > 15) or (wind.index[-1] < date) or (wind.index[0] > d1):
+                                                                            raise Exception("some wind data missing")  # indices where need data still
 
 
     # tide
@@ -170,6 +224,9 @@ for i, File in enumerate(Files):
             url += d1.strftime('%Y-%m-%d') + '+-+' + date.strftime('%Y-%m-%d')
             tide = pd.read_table(url, parse_dates=True, index_col=0, na_values=-999)
             tide = tide.resample('15min', base=0).interpolate()
+            # don't want more than 2 hours of nan's in there
+            if (tide.index[-1] - tide.index[0] < pd.Timedelta('7 days')) or (tide.isnull().sum() > 8):
+                raise Exception("tide data too short in length")  # indices where need data still
         except:  # model
             base = 'https://tidesandcurrents.noaa.gov/noaacurrents/DownloadPredictions?fmt=csv&i=30min&d='
             suffix = '&r=2&tz=GMT&u=2&id=g06010_1&t=24hr&i=30min&threshold=leEq&thresholdvalue='
@@ -196,7 +253,7 @@ for i, File in enumerate(Files):
     # river discharge
     url = 'https://nwis.waterdata.usgs.gov/usa/nwis/uv/?cb_00060=on&cb_00065=on&format=rdb&site_no=08067070&period=&begin_date=' + (d1 - pd.Timedelta('1 day')).strftime('%Y-%m-%d') + '&end_date=' + date.strftime('%Y-%m-%d')
     river = pd.read_table(url, parse_dates=True, comment='#', header=1, usecols=[2,4], index_col=0, na_values=-999,
-                     names=['Dates [UTC]', 'Trinity flow rate [m^3/s]']).tz_localize('US/Central', ambiguous='infer').tz_convert('UTC').tz_localize(None)
+                     names=['Dates [UTC]', 'Trinity flow rate [m^3/s]']).tz_localize('US/Central', ambiguous='NaT').tz_convert('UTC').tz_localize(None)
     river = river*0.3048**3  # to m^3/s
     df = pd.concat([df, river.resample('15min', base=0).mean()], axis=1)
 
@@ -238,11 +295,11 @@ for i, File in enumerate(Files):
 
             # mean east/north, std east/north, mean/std speed, mean/std dir
             keye = 'wind: east mean ' + str(nday) + ' days up to ' + str(delay) + ' days before date [m/s]'
-            w[keye] = df['East [m/s]'][dst:den].mean()
+            w[keye] = np.nanmean(df['East [m/s]'][dst:den])
             keyn = 'wind: north mean ' + str(nday) + ' days up to ' + str(delay) + ' days before date [m/s]'
-            w[keyn] = df['North [m/s]'][dst:den].mean()
+            w[keyn] = np.nanmean(df['North [m/s]'][dst:den])
             key = 'wind: speed mean ' + str(nday) + ' days up to ' + str(delay) + ' days before date [m/s]'
-            w[key] = df['Speed [m/s]'][dst:den].mean()
+            w[key] = np.nanmean(df['Speed [m/s]'][dst:den])
             key = 'wind: dir mean ' + str(nday) + ' days up to ' + str(delay) + ' days before date [m/s]'
             w[key] = np.arctan2(w[keyn], w[keye])
 
@@ -269,7 +326,7 @@ for i, File in enumerate(Files):
     if df['Along [cm/s]'][-1] < 0:
         #  case no small ebb tide (just count from start of ebb)
         if imax < ist:
-            for hoursum in np.arange(0,7):  # number of hours to sum over
+            for hoursum in np.arange(1,7):  # number of hours to sum over
                 for hourdelay in np.arange(0,7):  # number of hours before sat image to lag sum
                     key = 'tide: int over ' + str(hoursum) + ' hours, delayed ' + str(hourdelay) + ' hours before sat image but after start of ebb tide [m]'
                     dst = date - pd.Timedelta(str(hourdelay) + ' hours') - pd.Timedelta(str(hoursum) + ' hours')
@@ -278,11 +335,11 @@ for i, File in enumerate(Files):
                     if dst < df.index[ist]:
                         t[key] = np.nan
                     else:
-                        t[key] = df['Along [cm/s]'][dst:den].sum()*dt/100.
+                        t[key] = np.nansum(df['Along [cm/s]'][dst:den])*dt/100.
 
         # case yes small ebb tide before sat image on this ebb tide
         elif imax > ist:
-            for hoursum in np.arange(0,7):  # number of hours to sum over
+            for hoursum in np.arange(1,7):  # number of hours to sum over
                 for hourdelay in np.arange(0,7):  # number of hours before sat image to lag sum
                     key = 'tide: int over ' + str(hoursum) + ' hours, delayed ' + str(hourdelay) + ' hours before sat image but after mini ebb tide [m]'
                     dst = date - pd.Timedelta(str(hourdelay) + ' hours') - pd.Timedelta(str(hoursum) + ' hours')
@@ -291,7 +348,7 @@ for i, File in enumerate(Files):
                     if dst < df.index[imax]:
                         t[key] = np.nan
                     else:
-                        t[key] = df['Along [cm/s]'][dst:den].sum()*dt/100.
+                        t[key] = np.nansum(df['Along [cm/s]'][dst:den])*dt/100.
 
     # case flood tide. time lag from sat image date but nan out if calc goes into flood
     elif df['Along [cm/s]'][-1] > 0:
@@ -299,7 +356,7 @@ for i, File in enumerate(Files):
         istp = np.where(np.sign(df['Along [cm/s]'][:ist]) == -np.sign(df['Along [cm/s]'][ist]))[0][-1]
         #  case no small ebb tide (just count from start of ebb)
         if imax < istp:
-            for hoursum in np.arange(0,7):  # number of hours to sum over
+            for hoursum in np.arange(1,7):  # number of hours to sum over
                 for hourdelay in np.arange(0,7):  # number of hours before sat image to lag sum
                     key = 'tide: int over ' + str(hoursum) + ' hours, delayed ' + str(hourdelay) + ' hours before sat image but after start and before end of ebb tide [m]'
                     dst = date - pd.Timedelta(str(hourdelay) + ' hours') - pd.Timedelta(str(hoursum) + ' hours')
@@ -309,11 +366,11 @@ for i, File in enumerate(Files):
                     if dst < df.index[istp] or den > df.index[ist]:
                         t[key] = np.nan
                     else:
-                        t[key] = df['Along [cm/s]'][dst:den].sum()*dt/100.
+                        t[key] = np.nansum(df['Along [cm/s]'][dst:den])*dt/100.
 
         # case yes small ebb tide before sat image on previous ebb tide
         elif imax > istp:
-            for hoursum in np.arange(0,7):  # number of hours to sum over
+            for hoursum in np.arange(1,7):  # number of hours to sum over
                 for hourdelay in np.arange(0,7):  # number of hours before sat image to lag sum
                     key = 'tide: int over ' + str(hoursum) + ' hours, delayed ' + str(hourdelay) + ' hours before sat image but after mini ebb tide and before end of ebb tide [m]'
                     dst = date - pd.Timedelta(str(hourdelay) + ' hours') - pd.Timedelta(str(hoursum) + ' hours')
@@ -323,20 +380,103 @@ for i, File in enumerate(Files):
                     if dst < df.index[imax] or den > df.index[ist]:
                         t[key] = np.nan
                     else:
-                        t[key] = df['Along [cm/s]'][dst:den].sum()*dt/100.
+                        t[key] = np.nansum(df['Along [cm/s]'][dst:den])*dt/100.
 
     if i == 0:  # adding columns first time
         stats = pd.concat([stats, pd.DataFrame(index=[date], data=t)], axis=1)
     else:  # adding rows subsequently
         for key in t.keys():
             if key not in stats.keys():
-                stats[key] = t[key]
+                stats[key] = np.nan
+                stats[key].loc[date] = t[key]
             else:
                 stats[key].loc[date] = t[key]
 
-    stats.to_csv('/'.join(File.split('/')[:-1] + [str(year)]) + '.csv')
+    stats.to_csv(statsname)
 
 
 
-# # correlate some things
-# sns.regplot(x=, y='', data=df, ax=ax, scatter_kws={'s': 50});
+# correlate some things
+#
+import scipy.stats
+# keys for plume metrics
+pkeys = [key for key  in stats.keys() if 'plume' in key]
+# keys for tide metrics
+tkeys = [key for key  in stats.keys() if 'tide' in key]
+# keys for river metrics
+rkeys = [key for key  in stats.keys() if 'river' in key]
+# keys for wind metrics
+wkeys = [key for key  in stats.keys() if 'wind' in key]
+# keys for all mechanisms
+mkeys = tkeys + rkeys + wkeys
+
+r = pd.DataFrame(index=pkeys, columns=mkeys); p = pd.DataFrame(index=pkeys, columns=mkeys)
+for pkey in pkeys:
+    for mkey in mkeys:
+        # indices where not nans
+        inds = np.where(~stats[mkey].isnull())[0]
+        rtemp, ptemp = scipy.stats.pearsonr(stats[pkey].iloc[inds], stats[mkey].iloc[inds])
+
+        r[mkey].loc[pkey] = rtemp
+        p[mkey].loc[pkey] = ptemp
+
+
+# pull out largest correlations and plot them
+for pkey in r.index:
+    # indices of max correlation coefficients, in order
+    inds = np.argsort(abs(r.loc[pkey].values))[::-1]
+    for ind in inds:
+        mkey = r.columns[ind]
+        if (abs(r.loc[pkey,mkey]) < 0.5) or (p.loc[pkey,mkey] > 0.1) or (stats[mkey].isnull().sum() > len(stats)/2):
+            break
+        print(r.loc[pkey,mkey], p.loc[pkey,mkey])
+        plt.figure()
+        sns.regplot(x=mkey, y=pkey, data=stats, scatter_kws={'s': 50});
+
+# plot plume characteristics
+fig, axes = plt.subplots(1,3, sharey=True, figsize=(14,4))
+stats[pkeys[0]].plot(kind='hist', bins=20, ax=axes[0])#, label='area [m$^2$]', legend=True)
+axes[0].set_xlabel('area [m$^2$]')
+
+stats[pkeys[1]].plot(kind='hist', bins=20, ax=axes[1], alpha=0.7, label='centroid loc [upcoast]', legend=True)
+stats[pkeys[2]].plot(kind='hist', bins=20, ax=axes[1], alpha=0.7, label='centroid loc [offshore]', legend=True)
+axes[1].set_xlabel('distance [m]')
+
+stats[pkeys[3]].plot(kind='hist', bins=20, ax=axes[2], alpha=0.7, label='extent [upcoast]', legend=True)
+stats[pkeys[4]].plot(kind='hist', bins=20, ax=axes[2], alpha=0.7, label='extent [offshore]', legend=True)
+axes[2].set_xlabel('distance [m]')
+
+fig.savefig('figures/rgb/galv_plume/click/plume_metrics.pdf', bbox_inches='tight')
+
+# Plot example conditions
+from matplotlib.dates import date2num
+dst = tide.index[0]; den = tide.index[-1]
+idx = date2num(pd.to_datetime(wind[dst:den].index).to_pydatetime())
+ddt = 1
+width=.1
+
+fig, axes = plt.subplots(3,1, sharex=True, figsize=(14,6))
+axes[0].plot(idx, tide, lw=2, color='k')
+axes[0].set_ylabel('Along-channel\nspeed [cm$\cdot$s$^{-1}$]')
+axes[0].grid(which='major', lw=1.5, color='k', alpha=0.1)
+
+axes[1].quiver(idx, np.zeros(len(wind[dst:den])),
+               wind[dst:den]['East [m/s]'], wind[dst:den]['North [m/s]'],
+               headaxislength=0, headlength=0, width=width, units='y',
+               scale_units='y', scale=1)
+axes[1].set_ylabel('Wind [m$\cdot$s$^{-1}$]')
+axes[1].set_ylim(-10,10)
+axes[1].grid(which='major', lw=1.5, color='k', alpha=0.1)
+
+axes[2].plot(idx, river[dst:den], lw=2, color='k')
+axes[2].set_xlim(idx[0], idx[-1])
+axes[2].set_ylabel('Trinity river\ndischarge [m$^3$]')
+import matplotlib as mpl
+# minor = mpl.dates.HourLocator(byhour=np.arange(0,24,6))
+# ax.xaxis.set_minor_locator(minor)
+major = mpl.dates.HourLocator(byhour=np.arange(0,24,24))
+axes[2].xaxis.set_major_locator(major)
+axes[2].xaxis.set_major_formatter(mpl.dates.DateFormatter('%b %d'))
+axes[2].grid(which='major', lw=1.5, color='k', alpha=0.1)
+
+fig.savefig('figures/rgb/galv_plume/click/example_mechanisms.pdf', bbox_inches='tight')
