@@ -11,6 +11,7 @@ run plot_sat 2017 "ci" "wgom" "txla" --plotsource 'yes'
 run plot_sat 2017 "rgb" "galv" "galv_plume" --plotshipping 'yes' --plottide 'yes' --scale 5
 run plot_sat 2017 "rgb" "galv" "galv_bay" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 100
 run plot_sat 2017 "rgb" "galv" "galv_plume" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 100 --click 'yes'
+run plot_sat 2018 "rgb" "galv" "galv_plume" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 100 --plotlocs 'yes'
 
 ** not CI for GCOOS before 2016 -- GCOOS is appearing lighter for CI in 2016 and 2017 than in WGOM
 '''
@@ -332,8 +333,11 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             date = datetime(args.year, 1, 1) + timedelta(days=int(day) - 1) \
                     + timedelta(hours=int(time[:2])) + timedelta(minutes=int(time[2:]))
             filename = filebase + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area
+            if plotlocs:
+                filename += '-locs'
+
             print(date)
-            if not date > datetime(2017,12,10):
+            if not date > datetime(2018,3,26):
                 continue
             # import pdb; pdb.set_trace()
             if os.path.exists(filename + '.png'):
@@ -430,7 +434,6 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             if plotlocs:
                 pts = np.loadtxt('kmlpts.txt')
                 ax.plot(pts[:,0], pts[:,1], 'yo', transform=pc, markersize=4)
-                filename += '-locs'
 
             # plot shipping lanes
             if plotshipping:
