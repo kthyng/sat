@@ -7,12 +7,13 @@ plot_sat.py [-h] year "var" "area"
 Example usage:
 run plot_sat 2014 "ci" "wgom" "wgom"
 run plot_sat 2017 "ci" "gcoos" "txla"
-run plot_sat 2017 "ci" "wgom" "txla" --plotsource 'yes'
+run plot_sat 2017 "ci" "wgom" "txla" --plotsource 'yes' --plotbathy 'yes' --plotsource 'yes' --scale 50
 run plot_sat 2017 "rgb" "galv" "galv_plume" --plotshipping 'yes' --plottide 'yes' --scale 5
 run plot_sat 2017 "rgb" "galv" "galv_bay" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 100
 run plot_sat 2017 "rgb" "galv" "galv_plume" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 100 --click 'yes'
 run plot_sat 2018 "rgb" "galv" "galv_plume" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 100 --plotlocs 'yes'
-
+run plot_sat 2017 "ci" "wgom" "TX" --plotsource 'yes' --plotbathy 'yes' --plotsource 'yes' --scale 50
+run plot_sat 2016 "rgb" "galv" "galv_plume" --plotsource 'yes' --plottide 'yes' --scale 5  --dpi 300 --figtype 'tiff'
 ** not CI for GCOOS before 2016 -- GCOOS is appearing lighter for CI in 2016 and 2017 than in WGOM
 '''
 
@@ -43,7 +44,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('year', type=int, help='What year to plot')
 parser.add_argument('var', type=str, help='What field to plot: "sst" (sea surface temp) or "oci" (chlorophyll-a with good correction algorithm) or "ci" (chlorophyll-a with no sun glint) or "rgb" (color) or "CHL" (chlorophyll-a)')
 parser.add_argument('area', type=str, help='Area getting data from to plot: "gcoos" (full Gulf of Mexico) or "wgom" (western Gulf of Mexico) or "galv"')
-parser.add_argument('figarea', type=str, help='What area in Gulf to plot data in: "wgom" (western Gulf of Mexico) or "txla" (TXLA domain) or "galv_plume" or "galv_bay"')
+parser.add_argument('figarea', type=str, help='What area in Gulf to plot data in: "wgom" (western Gulf of Mexico) or "txla" (TXLA domain) or "galv_plume" or "galv_bay" or "TX"')
 parser.add_argument('--plotbathy', default=None, type=str, help='Plot bathymetry from NWGOM numerical model or not (any string input will cause to plot)')
 parser.add_argument('--plotdomain', default=None, type=str, help='Plot numerical domain from NWGOM numerical model or not (any string input will cause to plot)')
 parser.add_argument('--plotshipping', default=None, type=str, help='Plot shipping lanes or not (any string input will cause to plot)')
@@ -54,6 +55,7 @@ parser.add_argument('--plotblobs', default=None, type=str, help='Plot blobs for 
 parser.add_argument('--scale', default=None, type=int, help='To plot reference scale, input the reference km value as as int.')
 parser.add_argument('--dpi', default=100, type=int, help='dpi as int.')
 parser.add_argument('--click', default=None, type=str, help='Pause each image to possibly click points.')
+parser.add_argument('--figtype', default=None, type=str, help='Option in case you do not want a png for your image save file. Default "png", options: "tiff", "eps", "jpg"')
 args = parser.parse_args()
 
 
@@ -95,6 +97,10 @@ if args.click is not None:
     click = True
 else:
     click = False
+if args.figtype is not None:
+    figtype = args.figtype
+else:
+    figtype = 'png'
 dpi = args.dpi
 
 
@@ -178,6 +184,20 @@ elif args.figarea == 'txla':
     caxpos = [0.19, 0.79, 0.24, 0.02]  # colorbar axis position
     datex, datey = 0.01, 0.82  # location of date on figure
     datax, datay = 0.41, 0.97  # location of data note on figure
+    scalex, scaley = 0.07, 0.02  # location of scale
+    # tuples of indices for bottom, left, top, right of domain to check for values before plotting
+    ibottom = (0, np.arange(0, li))
+    ileft = (np.arange(0, lj), -1)
+    itop = (-1, np.arange(li, 0, -1))
+    iright = (np.arange(lj, 0, -1), 0)
+elif args.figarea == 'TX':
+    figextent = [-97.8, -94, 26, 29.9]
+    figsize = (7, 7)
+    top, right, left, bottom =.96, .98, .15, .01
+    caxpos = [0.25, 0.85, 0.35, 0.02]  # colorbar axis position
+    datex, datey = 0.1, 0.75  # location of date on figure
+    datax, datay = 0.41, 0.97  # location of data note on figure
+    scalex, scaley = 0.07, 0.02  # location of scale
     # tuples of indices for bottom, left, top, right of domain to check for values before plotting
     ibottom = (0, np.arange(0, li))
     ileft = (np.arange(0, lj), -1)
@@ -221,8 +241,15 @@ elif args.figarea == 'galv_bay':
 
 if args.var == 'sst':
     cmap = cmo.thermal
-    cmin = 10; cmax = 35; dc = 5
+    # # normally:
+    # cmin = 10; cmax = 35; dc = 5
+    # ticks = np.arange(cmin, cmax+dc, dc)
+    # just post harvey:
+    cmin = 25; cmax = 35; dc = 2
     ticks = np.arange(cmin, cmax+dc, dc)
+    # # for small summer range (later post harvey)
+    # cmin = 28; cmax = 30; dc = .5
+    # ticks = np.arange(cmin, cmax+dc, dc)
 elif args.var == 'oci':
     cmap = cmo.algae
     cmin = 0.1; cmax = 5; dc = 5
@@ -235,11 +262,17 @@ elif args.var == 'ci':
     # cmin = 0.035; cmax = 0.15; dc = 5
     # ticks = np.array([0.035, 0.05, 0.75, 0.1, 0.15])
     # # a little darker for light end
-    # cmin = 0.01; cmax = 0.15; dc = 5
-    # ticks = np.array([0.01, 0.02, 0.05, 0.75, 0.1, 0.15])
+    # cmin = 0.01; cmax = 0.1; dc = 5
+    # ticks = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
+    # cmin = 0.01; cmax = 0.05; dc = 5
+    # ticks = np.array([0.01, 0.02, 0.03, 0.04, 0.05])
+    # # used the following for small signal Harvey Rapid Response, 9/2017
+    # cmin = 0.015; cmax = 0.05; dc = 5
+    # ticks = np.array([0.015, 0.03, 0.04, 0.05])
     #
+    # Use this for general txla CI
     cmin = 0.025; cmax = 0.15; dc = 5
-    ticks = np.array([0.025, 0.05, 0.75, 0.1, 0.15])
+    ticks = np.array([0.025, 0.05, 0.075, 0.1, 0.15])
     # cmin = 0.005; cmax = 0.5; dc = 5
     # cmin = 0.002; cmax = 0.5; dc = 5
     # ticks = np.array([0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5])
@@ -320,10 +353,14 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             else:
                 fname = '.1KM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
         elif args.area == 'wgom':
-            fname = '.1KM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
+            if args.var == 'sst':
+                fname = '.1KM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
+            else:
+                fname = '.1KM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
         elif args.area == 'galv':
             fname = '.QKM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
 
+        # import pdb; pdb.set_trace()
 
         if fname in File.string:
             image_loc = url + row.string + File.string  # save file address
@@ -335,12 +372,14 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             filename = filebase + date.isoformat()[0:13] + date.isoformat()[14:16] + '-' + args.area
             if plotlocs:
                 filename += '-locs'
+            if dpi != 100:
+                filename += '-dpi%i' % dpi
 
             print(date)
-            if not date > datetime(2018,3,26):
-                continue
+            # if not date > datetime(2016,1,22):
+            #     continue
             # import pdb; pdb.set_trace()
-            if os.path.exists(filename + '.png'):
+            if os.path.exists('%s.%s' % (filename, figtype)):
                 continue
             # open and load in image
             response = requests.get(image_loc)
@@ -413,7 +452,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             ax.set_extent(figextent, pc)
 
             if args.var == 'sst':
-                mappable = ax.pcolormesh(LON, LAT, foo_mask, cmap=cmap, transform=pc)
+                mappable = ax.pcolormesh(LON, LAT, foo_mask, cmap=cmap, transform=pc, vmin=cmin, vmax=cmax)
             elif (args.var == 'oci') or (args.var == 'ci'):
                 mappable = ax.imshow(foo_mask.filled(0), origin='upper', cmap=cmap, transform=pc, extent=dataextent, norm=LogNorm(vmin=cmin, vmax=cmax))
                 # mappable = ax.pcolormesh(LON, LAT, foo_mask, cmap=cmap, norm=LogNorm(vmin=cmin, vmax=cmax), transform=pc)
@@ -422,7 +461,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
 
             # isobaths
             if plotbathy:
-                if args.figarea == 'txla':  # don't have data outside numerical domain
+                if args.figarea in ['txla', 'TX']:  # don't have data outside numerical domain
                     ax.contour(grid.lon_rho, grid.lat_rho, grid.h, hlevs, colors='0.6', transform=pc, linewidths=0.5)
                     ax.contour(grid.lon_rho, grid.lat_rho, grid.h, [100], colors='k', transform=pc, linewidths=0.5)  # 100 m isobath in black
 
@@ -668,7 +707,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                     plt.close(fig)
                     continue
 
-            fig.savefig(filename + '.png', bbox_inches='tight', dpi=dpi)
+            fig.savefig('%s.%s' % (filename, figtype), bbox_inches='tight', dpi=dpi)
             # import pdb; pdb.set_trace()
             plt.close(fig)
 # np.savez('notebooks/foos-' + str(args.year) + '.npz', foos=foos)
