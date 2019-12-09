@@ -116,8 +116,9 @@ from matplotlib.colors import LogNorm
 from matplotlib.dates import date2num
 mpl.rcParams.update({'font.size': 11})
 
-
-loc = '../grid.nc'
+loc = '/Volumes/GoogleDrive/My Drive/projects/grid.nc'
+# loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/forecast_his_archive_agg.nc'
+# loc = '../grid.nc'
 # loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
 # loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/txla_nesting6_grid/txla_grd_v4_new.nc'
 grid = xr.open_dataset(loc)
@@ -672,6 +673,7 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             if args.var != 'rgb':
                 cax = fig.add_axes(caxpos)  # colorbar axes
                 cb = fig.colorbar(mappable, cax=cax, orientation='horizontal')
+                # import pdb; pdb.set_trace()
                 if args.var == 'sst':
                     cb.set_label(r'Surface temperature [$^\circ\!$C]', fontsize=14, color='0.2')
                     cb.set_ticks(ticks)
