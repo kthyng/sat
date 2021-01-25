@@ -1,10 +1,12 @@
-from setuptools import setup
+#!/usr/bin/env python
+
+
+from setuptools import setup # to support "develop" mode
 
 
 setup(
-    use_scm_version={
-        "write_to": "_version.py",
-        "write_to_template": '__version__ = "{version}"',
-        "tag_regex": r"^(?P<prefix>v)?(?P<version>[^\+]+)(?P<suffix>.*)?$",
-    }
-)
+    name = "sat",
+    version = "0.1",
+    author = "Kristen Thyng",
+    author_email = "kthyng@gmail.com",
+    )
