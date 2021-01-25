@@ -3,7 +3,6 @@ pillow
 requests
 cmocean
 bs4
-argparse
 cartopy
 matplotlib
 xarray
