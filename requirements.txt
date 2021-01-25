@@ -8,5 +8,3 @@ cartopy
 matplotlib
 xarray
 pandas
-jupyter
-jupyterlab
