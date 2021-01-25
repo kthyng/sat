@@ -1,12 +1,9 @@
 numpy
-PIL
+pillow
 requests
-io
 cmocean
 bs4
-datetime
 argparse
-os
 cartopy
 matplotlib
 xarray
