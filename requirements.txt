@@ -7,3 +7,4 @@ cartopy
 matplotlib
 xarray
 pandas
+lxml
