@@ -38,6 +38,7 @@ import matplotlib.ticker as mticker
 import xarray as xr
 import cartopy.io.shapereader as shpreader
 import pandas as pd
+import logging
 
 # Input arguments: year and what to plot
 parser = argparse.ArgumentParser()
@@ -58,6 +59,9 @@ parser.add_argument('--click', default=None, type=str, help='Pause each image to
 parser.add_argument('--figtype', default=None, type=str, help='Option in case you do not want a png for your image save file. Default "png", options: "tiff", "eps", "jpg"')
 args = parser.parse_args()
 
+
+logging.basicConfig(filename='%s.log' % args.year, level=logging.INFO)
+logging.info('\n\n\n')
 
 # any input for plotbathy will cause bathy to plot
 if args.plotbathy is not None:
@@ -121,8 +125,10 @@ loc = '/Volumes/GoogleDrive/My Drive/projects/grid.nc'
 # loc = '../grid.nc'
 # loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/NcML/txla_hindcast_agg'
 # loc = 'http://barataria.tamu.edu:8080/thredds/dodsC/txla_nesting6_grid/txla_grd_v4_new.nc'
-grid = xr.open_dataset(loc)
-hlevs = [10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450]  # isobath contour depths
+
+# KMT: replace grid work
+# grid = xr.open_dataset(loc)
+# hlevs = [10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450]  # isobath contour depths
 
 merc = ccrs.Mercator(central_longitude=-85.0)
 pc = ccrs.PlateCarree()
@@ -167,8 +173,9 @@ elif args.area == 'galv':
     lat = np.linspace(27.8, 29.8, 880)
 LON, LAT = np.meshgrid(lon, lat[::-1])
 
-lj, li = grid.lon_rho.shape
-lj, li = lj-1, li-1
+# lj, li = grid.lon_rho.shape
+# lj, li = lj-1, li-1
+# KMT: FIND li, lj
 
 # in what area to actually plot the data
 if args.figarea == 'wgom':
@@ -239,6 +246,8 @@ elif args.figarea == 'galv_bay':
     tideextent = [0.22, 0.44, 0.26, 0.093]  # for tide box overlay
     overlayfont = 10
 
+# instead of numerical grid, use fig area to decide about where need image to be present
+
 
 if args.var == 'sst':
     cmap = cmo.thermal
@@ -284,18 +293,19 @@ soup = BeautifulSoup(requests.get(url).text, "lxml")
 
 # indices to be within the box of the domain and not covered by land and in numerical domain
 # for full numerical domain:
-lon = np.concatenate((grid.lon_rho[ibottom], grid.lon_rho[ileft], grid.lon_rho[itop], grid.lon_rho[iright]))
-lat = np.concatenate((grid.lat_rho[ibottom], grid.lat_rho[ileft], grid.lat_rho[itop], grid.lat_rho[iright]))
-verts = np.vstack((lon, lat)).T
-path = Path(verts)
-# true/false array of sat data points contained within area of interest
-ipts = path.contains_points(np.vstack((LON.flat, LAT.flat)).T)
-ptstotal = ipts.sum()  # how many points possible within area of interest
-
-# numerical domain
-nlon = np.concatenate((grid.lon_rho[::-1, 0], grid.lon_rho[0, :], grid.lon_rho[:, -1]))
-nlat = np.concatenate((grid.lat_rho[::-1, 0], grid.lat_rho[0, :], grid.lat_rho[:, -1]))
+# KMT: replace this
+# lon = np.concatenate((grid.lon_rho[ibottom], grid.lon_rho[ileft], grid.lon_rho[itop], grid.lon_rho[iright]))
+# lat = np.concatenate((grid.lat_rho[ibottom], grid.lat_rho[ileft], grid.lat_rho[itop], grid.lat_rho[iright]))
 # verts = np.vstack((lon, lat)).T
+# path = Path(verts)
+# # true/false array of sat data points contained within area of interest
+# ipts = path.contains_points(np.vstack((LON.flat, LAT.flat)).T)
+# ptstotal = ipts.sum()  # how many points possible within area of interest
+
+# # numerical domain
+# nlon = np.concatenate((grid.lon_rho[::-1, 0], grid.lon_rho[0, :], grid.lon_rho[:, -1]))
+# nlat = np.concatenate((grid.lat_rho[::-1, 0], grid.lat_rho[0, :], grid.lat_rho[:, -1]))
+# # verts = np.vstack((lon, lat)).T
 
 # x = np.concatenate((grid.x_rho[0, :], grid.x_rho[:, -1], grid.x_rho[-1, ::-1], grid.x_rho[::-1, 0]))
 # y = np.concatenate((grid.y_rho[0, :], grid.y_rho[:, -1], grid.y_rho[-1, ::-1], grid.y_rho[::-1, 0]))
@@ -323,23 +333,24 @@ def scale_bar(ax, length, location=(0.5, 0.05), linewidth=3):
     ax.text(sbcx, sbcy, str(length) + ' km', transform=merc,
             horizontalalignment='center', verticalalignment='bottom')
 
-if not os.path.exists('figures/'):  # make sure directory exists
-    os.makedirs('figures/')
-if not os.path.exists('figures/' + args.var):  # make sure directory exists
-    os.makedirs('figures/' + args.var)
-if not os.path.exists('figures/' + args.var + '/' + args.figarea):  # make sure directory exists
-    os.makedirs('figures/' + args.var + '/' + args.figarea)
+# if not os.path.exists('figures/'):  # make sure directory exists
+os.makedirs('figures/', exist_ok=True)
+# if not os.path.exists('figures/' + args.var):  # make sure directory exists
+os.makedirs('figures/%s' % args.var, exist_ok=True)
+# if not os.path.exists('figures/' + args.var + '/' + args.figarea):  # make sure directory exists
+os.makedirs('figures/%s/%s' % (args.var, args.figarea), exist_ok=True)
+os.makedirs('figures/%s/%s/bad' % (args.var, args.figarea), exist_ok=True)  # for bad data
 # foos = []
 filebase = 'figures/' + args.var + '/' + args.figarea + '/'
 if click:
     filebase += 'click/'
     clickbase = '/'.join(['calcs', 'pts'] + filebase.split('/')[1:])
-    if not os.path.exists(filebase):  # make sure directory exists
-        os.makedirs(filebase)
+#     if not os.path.exists(filebase):  # make sure directory exists
+    os.makedirs(filebase, exist_ok=True)
     for i in range(len(clickbase.split('/')[:-1])):
         loc = '/'.join(clickbase.split('/')[:i+1])
-        if not os.path.exists(loc):  # make sure directory exists
-            os.makedirs(loc)
+#         if not os.path.exists(loc):  # make sure directory exists
+        os.makedirs(loc, exist_ok=True)
 
 for row in soup.findAll('a')[5:]:  # loop through each day
     # print row
@@ -348,20 +359,22 @@ for row in soup.findAll('a')[5:]:  # loop through each day
     for File in soup_dir.findAll('a')[5:]:  # find all files for this day
         # print File
         # search for the image file we want, might be more than one for a day
-        if args.area == 'gcoos':
-            if args.var == 'ci':
-                fname = '.1KM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
-            else:
-                fname = '.1KM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
-        elif args.area == 'wgom':
-            if args.var == 'sst':
-                fname = '.1KM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
-            else:
-                fname = '.1KM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
-        elif args.area == 'galv':
-            fname = '.QKM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
+#         if args.area == 'gcoos':
+# #             if args.var == 'ci':
+# #                 fname = '.1KM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
+# #             else:
+#             fname = '.1KM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
+#         elif args.area == 'wgom':
+# #             if args.var == 'sst':
+#             fname = '.1KM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
+# #             else:
+# #                 fname = '.1KM.' + args.area.upper() + '.PASS.L3D_RRC.' + args.var.upper() + '.png'
+#         elif args.area == 'galv':
+#             fname = '.QKM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
+        fname = '.QKM.' + args.area.upper() + '.PASS.L3D.' + args.var.upper() + '.png'
 
-        # import pdb; pdb.set_trace()
+#         if '.RGB.' in File.string:
+#             import pdb; pdb.set_trace()
 
         if fname in File.string:
             image_loc = url + row.string + File.string  # save file address
@@ -376,11 +389,18 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             if dpi != 100:
                 filename += '-dpi%i' % dpi
 
-            print(date)
+#             print(date)
+            logging.info(date)
             # if not date > datetime(2016,1,22):
             #     continue
             # import pdb; pdb.set_trace()
             if os.path.exists('%s.%s' % (filename, figtype)):
+                logging.info('%s: file already exists' % filename)
+                continue
+            # file might already exist in "bad" data directory
+            filenamebad = '/'.join(filename.split('/')[:-1] + ['bad',filename.split('/')[-1]])
+            if os.path.exists('%s.%s' % (filenamebad, figtype)):
+                logging.info('%s: file already exists' % filenamebad)
                 continue
             # open and load in image
             response = requests.get(image_loc)
@@ -424,14 +444,57 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                     # continue
                 # check for too much black or white in designated important region (defined by ibottom, etc)
                 # check for black in one channel within important region
-                if (foo[:,:,0].flat[ipts] == 0).sum() > (ptstotal*(1./4)):
-                    print(filename + ': too much black in image')
-                    continue
-                # check for white in one channel
-                if (foo[:,:,0].flat[ipts] >= 180).sum() > (ptstotal*(1./4)):
-                    print(filename + ': too much white in image')
-                    continue
-            # import pdb; pdb.set_trace()
+                # KMT: need replacement here
+#                 if (foo[:,:,0].flat[ipts] == 0).sum() > (ptstotal*(1./4)):
+#                     print(filename + ': too much black in image')
+#                     continue
+#                 # check for white in one channel
+#                 if (foo[:,:,0].flat[ipts] >= 180).sum() > (ptstotal*(1./4)):
+#                     print(filename + ': too much white in image')
+#                     continue
+                ds = xr.DataArray(data=foo[::-1], coords={'lon': lon, 'lat': lat}, dims=['lat','lon','colors']).astype(int)
+                foo = ds.sel(lon=slice(*figextent[:2]), lat=slice(*figextent[2:]))
+                # check for black in one channel within important region
+                # KMT: need replacement here
+                # check for bad images: too much black, white, or grey in data in figview
+#                 import pdb; pdb.set_trace()
+                red, green, blue = foo[:,:,0].copy(deep=True), foo[:,:,1].copy(deep=True), foo[:,:,2].copy(deep=True)
+                if ((red>150).sum() > red.size*0.05) \
+                    and ((green>150).sum() > red.size*0.05) \
+                    and ((blue>150).sum() > red.size*0.05):
+#                     print('white')
+                    # kludgey way of putting file in a subdir
+                    logging.info('%s: Too much white in data' % filenamebad)
+                    filename = filenamebad
+                if (red==112).sum() > red.size/2:
+#                     print('gray')
+                    # kludgey way of putting file in a subdir
+                    logging.info('%s: Too much gray in data' % filenamebad)
+                    filename = filenamebad
+#                     continue
+# #
+#                 try:
+#                     toomany = foo[:,:,0].size/2
+#                     red = foo[:,:,0]
+#                     assert (foo[:,:,0] >= 220).sum() < toomany
+#                     assert (foo[:,:,0] == 180).sum() < toomany
+#                     assert (foo[:,:,0] <= 30).sum() < toomany  # white
+#                     assert (foo[:,:,0] == 112).sum() < toomany  # gray
+#                 except:
+#                     continue
+#                 if (foo[:,:,0] >= 220).sum() > foo[:,:,0].size/4:
+#                     print(filename + ': too much black in image')
+#                     continue
+#                 # check for white in one channel
+# #                 if (foo[:,:,0] == 180).sum() > foo[:,:,0].size/4:
+# #                     print(filename + ': too much white in image')
+# #                     continue
+#                 if (foo[:,:,0] <= 30).sum() > foo[:,:,0].size/4:
+#                     print(filename + ': too much white in image')
+#                     continue
+#                 if (foo[:,:,0] == 112).sum() > foo[:,:,0].size/4:
+#                     print(filename + ': too much gray in image')
+#                     continue
             # foos.append(foo)
             # plot
             fig = plt.figure(figsize=figsize)#, dpi=200)  # (9.5, 10))
@@ -441,11 +504,8 @@ for row in soup.findAll('a')[5:]:  # loop through each day
             # the following two make the labels look like lat/lon format
             gl.xformatter = LONGITUDE_FORMATTER
             gl.yformatter = LATITUDE_FORMATTER
-            # gl.xlocator = mticker.FixedLocator([-105, -95, -85, -75, -65])  # control where the ticks are
-            # gl.xlabel_style = {'size': 15, 'color': 'gray'}  # control how the tick labels look
-            # gl.ylabel_style = {'color': 'red', 'weight': 'bold'}
-            gl.xlabels_bottom = False  # turn off labels where you don't want them
-            gl.ylabels_right = False
+            gl.bottom_labels = False  # turn off labels where you don't want them
+            gl.right_labels = False
             ax.add_feature(land_10m, facecolor='0.8')
             ax.coastlines(resolution='10m')  # coastline resolution options are '110m', '50m', '10m'
             ax.add_feature(states_provinces, edgecolor='0.2')
@@ -458,7 +518,9 @@ for row in soup.findAll('a')[5:]:  # loop through each day
                 mappable = ax.imshow(foo_mask.filled(0), origin='upper', cmap=cmap, transform=pc, extent=dataextent, norm=LogNorm(vmin=cmin, vmax=cmax))
                 # mappable = ax.pcolormesh(LON, LAT, foo_mask, cmap=cmap, norm=LogNorm(vmin=cmin, vmax=cmax), transform=pc)
             elif args.var == 'rgb':
-                mappable = ax.imshow(foo, origin='upper', transform=pc, extent=dataextent)
+                mappable = foo.plot.imshow(ax=ax, transform=pc, extent=dataextent)
+#                 mappable = ax.imshow(foo, origin='lower', transform=pc, extent=dataextent)
+#                 mappable = ax.imshow(foo, origin='upper', transform=pc, extent=dataextent)
 
             # isobaths
             if plotbathy:
