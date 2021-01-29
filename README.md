@@ -9,3 +9,9 @@ This assumes you are using Anaconda to access Python, and you have already [inst
 1. Create environment with necessary packages: `conda create --name SAT python=3.8 --file requirements.txt`
 
 ## Run script
+
+
+## Examples
+
+To run examples, also install `jupyterlab` with 
+> conda install jupyterlab
